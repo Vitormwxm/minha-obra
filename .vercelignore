@@ -1,0 +1,10 @@
+.git/
+.vercel/
+node_modules/
+*.test.cjs
+README.md
+.env*
+*.apk
+.signing/
+.build-tools/
+android/

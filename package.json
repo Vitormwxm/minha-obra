@@ -1,0 +1,10 @@
+{
+  "name": "minha-obra-site",
+  "version": "1.0.1",
+  "private": true,
+  "description": "Versão web estática do Minha Obra, pronta para Vercel.",
+  "scripts": {
+    "test": "node --test calculator.test.cjs site.test.cjs",
+    "check": "node --check calculator.js && node --check app.js && node --check web.js && node --check sw.js"
+  }
+}

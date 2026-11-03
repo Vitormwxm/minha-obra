@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#087f72">
+  <meta name="description" content="Planeje os encargos mensais durante a construção do seu imóvel. Um simulador local, sem cadastro, para organizar os pagamentos até a entrega.">
+  <title>Minha Obra — Planeje seus pagamentos até a entrega</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="calculator.js"></script>
+  <script defer src="app.js"></script>
+  <script defer src="web.js"></script>
+</head>
+<body data-screen="simulate">
+  <a class="skip-link" href="#simulation-form">Ir para o simulador</a>
+
+  <header class="site-header">
+    <div class="page-shell header-inner">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M5 15.3 16 6l11 9.3M8.5 13v13h15V13"/><path d="M13 26v-8h6v8"/></svg></span>
+      <div class="app-title"><span class="brand">Minha Obra</span><p>Seu financiamento, mês a mês</p></div>
+      <span class="offline-badge"><i aria-hidden="true"></i><span id="connection-status">No navegador</span></span>
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <div id="status-msg" class="status-message" role="status" aria-live="polite"></div>
+    <div class="workspace">
+      <section id="simulation-screen" class="card inputs-panel" aria-labelledby="inputs-title">
+        <div class="panel-heading">
+          <div><p class="section-kicker">SIMULAÇÃO</p><h1 id="inputs-title">Dados do financiamento</h1></div>
+          <span class="heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/></svg></span>
+        </div>
+        <p class="panel-description">Preencha os valores do seu contrato. Quando não houver cobrança, informe zero.</p>
+        <button id="load-example" class="button button-example" type="button">
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m8 5 6 5-6 5V5Z"/><circle cx="10" cy="10" r="8"/></svg>
+          Usar exemplo demonstrativo
+        </button>
+
+        <form id="simulation-form" novalidate>
+          <div id="form-errors" class="form-errors" role="alert" tabindex="-1" hidden></div>
+
+          <fieldset class="form-section">
+            <legend>Saldo e encargos</legend>
+            <div class="field">
+              <label for="balance">Saldo atual liberado <span class="unit-label">R$</span></label>
+              <div class="input-wrap"><span class="input-prefix" aria-hidden="true">R$</span><input id="balance" name="balance" type="text" inputmode="decimal" data-kind="currency" class="has-prefix" placeholder="Ex.: 80.000,00" autocomplete="off" required aria-describedby="balance-help"></div>
+              <p id="balance-help" class="field-hint">O valor que o banco já liberou, antes do primeiro mês simulado.</p>
+            </div>
+            <div class="field">
+              <label for="targetBalance">Saldo final do financiamento <span class="unit-label">R$</span></label>
+              <div class="input-wrap"><span class="input-prefix" aria-hidden="true">R$</span><input id="targetBalance" name="targetBalance" type="text" inputmode="decimal" data-kind="currency" class="has-prefix" value="192.000,00" placeholder="Ex.: 192.000,00" autocomplete="off" required aria-describedby="target-help"></div>
+              <p id="target-help" class="field-hint">O saldo previsto com 100% do crédito liberado. A diferença para o saldo atual será distribuída até a entrega da obra.</p>
+            </div>
+            <div class="field">
+              <label for="annualRate">Juros nominais <span class="unit-label">% ao ano</span></label>
+              <div class="input-wrap"><input id="annualRate" name="annualRate" type="text" inputmode="decimal" data-kind="rate" class="has-suffix" placeholder="Ex.: 8,00" autocomplete="off" required aria-describedby="rate-help"><span class="input-suffix" aria-hidden="true">% a.a.</span></div>
+              <p id="rate-help" class="field-hint">Use a taxa nominal do contrato.</p>
+            </div>
+            <div class="field">
+              <label for="trRate">TR projetada <span class="unit-label">% ao mês</span></label>
+              <div class="input-wrap"><input id="trRate" name="trRate" type="text" inputmode="decimal" data-kind="rate" class="has-suffix" placeholder="Ex.: 0,10" autocomplete="off" required aria-describedby="tr-help"><span class="input-suffix" aria-hidden="true">% a.m.</span></div>
+              <p id="tr-help" class="field-hint">A TR futura é uma hipótese. Você pode alterá-la mês a mês.</p>
+            </div>
+            <div class="field-grid">
+              <div class="field">
+                <label for="insurance">Seguro mensal <span class="unit-label">R$</span></label>
+                <div class="input-wrap"><span class="input-prefix" aria-hidden="true">R$</span><input id="insurance" name="insurance" type="text" inputmode="decimal" data-kind="currency" class="has-prefix" placeholder="Ex.: 30,00" autocomplete="off" required></div>
+              </div>
+              <div class="field">
+                <label for="fee">Taxas mensais <span class="unit-label">R$</span></label>
+                <div class="input-wrap"><span class="input-prefix" aria-hidden="true">R$</span><input id="fee" name="fee" type="text" inputmode="decimal" data-kind="currency" class="has-prefix" placeholder="Ex.: 25,00" autocomplete="off" required></div>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="form-section">
+            <legend>Período da projeção</legend>
+            <div class="field-grid">
+              <div class="field"><label for="startMonth">Primeiro mês</label><input id="startMonth" name="startMonth" type="month" required></div>
+              <div class="field"><label for="endMonth">Mês da entrega</label><input id="endMonth" name="endMonth" type="month" required></div>
+            </div>
+            <p class="field-hint">O cálculo inclui o primeiro mês e o mês previsto para a entrega.</p>
+          </fieldset>
+
+          <input id="releaseMode" name="releaseMode" type="hidden" value="equal">
+          <input id="releaseTiming" name="releaseTiming" type="hidden" value="end">
+          <input id="remainingRelease" name="remainingRelease" type="hidden" data-kind="currency" value="0" readonly>
+
+          <div class="form-actions">
+            <button id="calculate" class="button button-primary" type="submit">Calcular minha projeção<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h12m-5-5 5 5-5 5"/></svg></button>
+            <button id="clear-all" class="button button-quiet" type="button">Limpar todos os dados</button>
+          </div>
+          <label class="remember-option" for="remember-data"><input id="remember-data" name="remember-data" type="checkbox"><span>Lembrar meus dados neste navegador<small>Opcional. Armazenamento somente neste navegador e dispositivo.</small></span></label>
+        </form>
+        <div class="file-actions" aria-label="Salvar e abrir cenários">
+          <button id="save-file" class="button button-file" type="button"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3v10m-4-4 4 4 4-4M4 14v3h12v-3"/></svg>Salvar cenário</button>
+          <button id="load-file" class="button button-file" type="button"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 13V3M6 7l4-4 4 4M4 14v3h12v-3"/></svg>Abrir cenário</button>
+          <input id="import-file" type="file" accept=".json,application/json" hidden>
+        </div>
+      </section>
+
+      <div id="results-screen" class="output-column">
+
+        <section id="empty-state" class="card empty-state" aria-labelledby="empty-title">
+          <div class="empty-illustration" aria-hidden="true">
+            <div class="illustration-orbit"></div>
+            <svg viewBox="0 0 200 170" fill="none"><rect x="39" y="36" width="122" height="104" rx="13"/><path d="M39 66h122M65 25v24m70-24v24"/><path class="illustration-accent" d="m76 108 16 16 33-35"/><path class="illustration-detail" d="M23 90h-9m158 25h12M147 19l5-8M54 152l-5 8"/></svg>
+            <span class="illustration-dot dot-one"></span><span class="illustration-dot dot-two"></span>
+          </div>
+          <p class="section-kicker">RESULTADO</p>
+          <h2 id="empty-title">Vamos olhar os próximos meses?</h2>
+          <p>Preencha a simulação para ver seus pagamentos e a evolução do saldo até a entrega.</p>
+          <div class="empty-features"><span><i aria-hidden="true"></i>Encargos mês a mês</span><span><i aria-hidden="true"></i>Total até a entrega</span><span><i aria-hidden="true"></i>Cenários ajustáveis</span></div>
+          <p class="empty-footnote">Você também pode começar pelo exemplo demonstrativo.</p>
+        </section>
+
+        <section id="result-area" class="results" aria-labelledby="results-title" hidden>
+          <div class="results-heading">
+            <div><p class="section-kicker">RESULTADO</p><h2 id="results-title">Resumo da projeção</h2><p id="range-label" class="range-label"></p></div>
+            <span class="estimate-tag">Estimativa</span>
+          </div>
+
+          <div class="metrics-grid">
+            <article class="metric-card metric-main"><p>Total de encargos até a entrega</p><strong id="total-paid">—</strong><span>Somatório dos pagamentos no período</span></article>
+            <article class="metric-card"><p>Pagamento médio mensal</p><strong id="average-paid">—</strong><span>Para organizar seu orçamento</span></article>
+            <article class="metric-card"><p>Maior pagamento mensal</p><strong id="peak-paid">—</strong><span>O pico previsto neste cenário</span></article>
+            <article class="metric-card"><p>Saldo final atingido</p><strong id="final-balance">—</strong><span>100% do valor previsto, liberado até a entrega</span></article>
+          </div>
+
+          <section class="card chart-card" aria-labelledby="chart-title">
+            <div class="card-heading"><div><h2 id="chart-title">Seu pagamento, mês a mês</h2><p>Encargos estimados durante a construção.</p></div><span class="chart-legend"><i aria-hidden="true"></i>Pagamento mensal</span></div>
+            <div id="chart-container" class="chart-container" role="img" aria-label="Gráfico dos pagamentos mensais estimados; valores completos na tabela abaixo."></div>
+            <div class="payment-milestones">
+              <div><span>Primeiro pagamento</span><strong id="first-payment">—</strong></div>
+              <div><span>Último pagamento</span><strong id="last-payment">—</strong></div>
+              <div><span>Meses na projeção</span><strong id="month-count">—</strong></div>
+            </div>
+          </section>
+
+          <section class="card breakdown-card" aria-labelledby="breakdown-title"><div class="card-heading"><div><h2 id="breakdown-title">O que compõe esse total</h2><p>Uma visão dos encargos acumulados no período.</p></div></div><div id="summary-breakdown" class="summary-breakdown"></div></section>
+
+          <section class="card projection-card" aria-labelledby="table-title">
+            <div class="card-heading table-heading"><div><h2 id="table-title">Detalhamento mensal</h2><p>Confira a evolução do saldo e de cada encargo.</p></div><div class="report-actions"><button id="export-csv" class="button button-small" type="button"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3v10m-4-4 4 4 4-4M4 14v3h12v-3"/></svg>Exportar CSV</button><button id="print-report" class="button button-small" type="button"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 7V3h10v4M5 14H3V7h14v7h-2M5 11h10v6H5v-6Zm9-2h1"/></svg>Imprimir</button></div></div>
+            <div class="table-scroll" tabindex="0" role="region" aria-label="Tabela mensal da projeção, com rolagem horizontal">
+              <table class="projection-table"><caption class="sr-only">Evolução mensal dos valores liberados e encargos previstos até a entrega</caption><thead><tr><th scope="col">Mês</th><th scope="col">Saldo-base (R$)</th><th scope="col">Liberação (R$)</th><th scope="col">TR (% a.m.)</th><th scope="col">Correção TR (R$)</th><th scope="col">Juros (R$)</th><th scope="col">Seguro (R$)</th><th scope="col">Taxas (R$)</th><th scope="col">Pagamento (R$)</th><th scope="col">Saldo final (R$)</th></tr></thead><tbody id="projection-body"></tbody><tfoot id="table-totals"></tfoot></table>
+            </div>
+            <p class="table-note">Valores em reais. Durante a obra, os pagamentos desta simulação não amortizam o saldo financiado.</p>
+          </section>
+        </section>
+
+        <section class="assumptions-card" aria-labelledby="assumptions-title">
+          <div class="assumptions-heading"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 9v5m0-8v.5"/></svg><h2 id="assumptions-title">Como esta estimativa funciona</h2></div>
+          <ul>
+            <li>A taxa mensal de juros é a <strong>taxa nominal anual dividida por 12</strong>.</li>
+            <li>A <strong>TR futura é uma hipótese</strong>. Neste modelo, ela é paga no boleto, sem ser capitalizada no saldo.</li>
+            <li>Novas liberações entram no início ou no fim do mês, conforme sua escolha. <strong>Não há cálculo proporcional por dia.</strong></li>
+            <li>A diferença entre o saldo atual e o saldo final é distribuída até o mês da entrega. Você pode informar um cronograma personalizado de liberações.</li>
+            <li>Seguros e taxas são mantidos fixos, mas podem ser ajustados no editor mensal.</li>
+            <li>Os pagamentos de obra <strong>não amortizam o financiamento</strong>. A fase de amortização após a entrega não está incluída.</li>
+          </ul>
+          <p class="assumptions-footnote">Use a projeção para planejar seu orçamento. O boleto pode variar conforme seu contrato, as datas de liberação e as cobranças do banco.</p>
+        </section>
+        <details class="reference-details"><summary>Referências e informações</summary><p>Esta é uma estimativa baseada nas hipóteses informadas no seu contrato.</p><a href="https://www.caixa.gov.br/Downloads/habitacao-documentos-gerais/Cartilha_Juros_Fase_de_Obras.pdf" target="_blank" rel="noopener noreferrer">Cartilha CAIXA — juros na fase de obras</a></details>
+      </div>
+    </div>
+
+    <section id="schedule-screen"><details id="monthly-editor" class="card schedule-editor" open>
+      <summary><span><span class="section-kicker">CALENDÁRIO MENSAL</span><span class="schedule-title">Ajustar mês a mês</span><span class="summary-description">Personalize liberações, TR, seguro e taxas para cada mês.</span></span><svg class="disclosure-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m5 7.5 5 5 5-5"/></svg></summary>
+      <div class="schedule-content"><p class="editor-description">Os valores mensais substituem as hipóteses gerais para o mês correspondente. Confira o período informado antes de editar.</p><div id="monthly-inputs" class="table-scroll" tabindex="0" role="region" aria-label="Editor dos valores mensais"></div><div class="schedule-actions"><p>Depois de editar, aplique os ajustes para atualizar a projeção.</p><button id="apply-schedule" class="button button-secondary" type="button">Aplicar ajustes mensais<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m5 10 3 3 7-7"/></svg></button></div></div>
+    </details></section>
+
+    <footer class="site-footer"><p>Seus dados ficam neste navegador. Cálculos feitos no seu dispositivo.</p></footer>
+  </main>
+  <nav class="bottom-nav" aria-label="Navegação do aplicativo">
+    <button id="nav-simulate" type="button" data-screen="simulate" aria-current="page"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8M8 11h2m4 0h2m-8 4h2m4 0h2m-8 3h2m4 0h2"/></svg><span>Simular</span></button>
+    <button id="nav-results" type="button" data-screen="results"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h16M7 16V9m5 7V4m5 12v-5"/></svg><span>Resultado</span></button>
+    <button id="nav-schedule" type="button" data-screen="schedule"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 10h18M7 14h3m4 0h3m-10 3h3"/></svg><span>Mensal</span></button>
+  </nav>
+  <noscript><div class="noscript-message">Ative o JavaScript no navegador para calcular sua projeção. Nenhum dado é enviado a um servidor.</div></noscript>
+</body>
+</html>
