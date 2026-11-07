@@ -7,3 +7,7 @@
 *.md text eol=lf
 *.svg text eol=lf
 *.ttf binary
+*.jar binary
+*.sh text eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf

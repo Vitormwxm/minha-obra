@@ -1,0 +1,60 @@
+server {
+    listen 80;
+    server_name ${APP_DOMAIN};
+    location = /nginx-health {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        default_type text/plain;
+        try_files $uri =404;
+    }
+    location / {
+        return 308 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name ${APP_DOMAIN};
+    ssl_certificate /etc/nginx/ssl/live/${APP_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/nginx/ssl/live/${APP_DOMAIN}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    server_tokens off;
+    root /usr/share/nginx/html;
+    index index.html;
+    client_max_body_size 2m;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+
+    location = /healthz {
+        access_log off;
+        proxy_pass http://backend:8080/actuator/health/readiness;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 10s;
+    }
+    location ^~ /actuator {
+        return 404;
+    }
+    location ^~ /api/ {
+        proxy_pass http://backend:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 30s;
+    }
+    location ~* \.(?:js|css|woff2?|ttf|svg|png|webp|ico)$ {
+        try_files $uri =404;
+        expires 1h;
+    }
+    location / {
+        expires -1;
+        try_files $uri $uri/ /index.html;
+    }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "minha-obra",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@11.19.1",
+  "engines": {
+    "node": "^24.15.0",
+    "npm": ">=11 <12"
+  },
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "typecheck": "ngc --project tsconfig.app.json --noEmit",
+    "build": "ng build --configuration production",
+    "watch": "ng build --watch --configuration development"
+  },
+  "dependencies": {
+    "@angular/common": "22.2.5",
+    "@angular/compiler": "22.2.5",
+    "@angular/core": "22.2.5",
+    "@angular/platform-browser": "22.2.5",
+    "rxjs": "7.8.2",
+    "tslib": "2.8.1"
+  },
+  "devDependencies": {
+    "@angular/build": "22.2.5",
+    "@angular/cli": "22.2.5",
+    "@angular/compiler-cli": "22.2.5",
+    "prettier": "3.8.1",
+    "typescript": "6.0.2"
+  }
+}

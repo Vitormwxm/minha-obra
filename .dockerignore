@@ -1,0 +1,11 @@
+**
+!frontend/
+!frontend/dist/
+!frontend/dist/minha-obra/
+!frontend/dist/minha-obra/browser/
+!frontend/dist/minha-obra/browser/**
+!infra/
+!infra/docker/
+!infra/docker/frontend.Dockerfile
+!infra/nginx/
+!infra/nginx/default.conf.template

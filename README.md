@@ -1,4 +1,29 @@
-# Minha Obra — versão web
+# Minha Obra — plataforma
+
+Base de arquitetura e CI/CD da plataforma independente do FocusLab.
+Java/Spring Boot, Angular, PostgreSQL, Kafka, FCM e Android Java/WebView.
+Nome comercial provisório. As funcionalidades novas aprovadas ainda serão
+implementadas; esta entrega prepara os projetos compiláveis e a operação.
+
+- [Arquitetura e regras aprovadas](docs/ARCHITECTURE.md)
+- [Pipelines e configuração de publicação](docs/PIPELINES.md)
+- [Inventário da VPS e retirada do FocusLab](docs/VPS.md)
+- [Backend](backend/README.md)
+- [Frontend](frontend/README.md)
+- [Android](android/README.md)
+
+Diretórios: `backend/` (controllers, services, repositories e módulos),
+`frontend/` (Angular/Poppins), `android/`, `infra/` e `docs/`.
+A CI compila os projetos reais e executa integração contra PostgreSQL.
+A VPS de 1 vCPU/2 GiB apenas recebe imagens prontas; usa
+**docker-compose v2.24.5 standalone**, com detecção compatível nos scripts.
+Deploy é manual a partir de imagens de commit da main aprovado pela CI.
+
+## Referência do simulador estático anterior
+
+Os arquivos estáticos da raiz continuam preservados como referência para
+migrar e validar as regras financeiras. As instruções abaixo descrevem esse
+legado, não a nova aplicação com servidor e contas.
 
 Site feito em HTML, CSS e JavaScript, com a mesma fonte Poppins e o mesmo motor de cálculo do aplicativo Android. Os arquivos deste diretório são independentes do projeto Android e estão prontos para publicação na Vercel.
 

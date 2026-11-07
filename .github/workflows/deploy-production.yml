@@ -1,0 +1,84 @@
+name: Deploy production
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Commit completo da main com CI aprovada e imagens publicadas
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: minha-obra-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      RELEASE_SHA: ${{ inputs.source_sha }}
+      GH_TOKEN: ${{ github.token }}
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_PORT: ${{ vars.VPS_PORT || '22022' }}
+      PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - name: Validar solicitação e configuração
+        run: |
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'Informe o SHA completo.' >&2; exit 1; }
+          [[ "$VPS_HOST" =~ ^[A-Za-z0-9.-]+$ ]] || { echo 'Configure VPS_HOST.' >&2; exit 1; }
+          [[ "$VPS_USER" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || { echo 'Configure VPS_USER.' >&2; exit 1; }
+          [[ "$VPS_PORT" =~ ^[0-9]+$ ]] && (( VPS_PORT > 0 && VPS_PORT < 65536 ))
+          [[ "$PRODUCTION_URL" =~ ^https://[A-Za-z0-9.-]+/?$ ]] || { echo 'Configure PRODUCTION_URL com HTTPS.' >&2; exit 1; }
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ inputs.source_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Confirmar main e publicação bem-sucedida
+        id: release
+        run: |
+          git merge-base --is-ancestor "$RELEASE_SHA" origin/main
+          run_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$RELEASE_SHA&branch=main&event=push&status=completed&per_page=20" \
+            --jq '.workflow_runs | map(select(.conclusion == "success")) | first | .id // empty')
+          [[ "$run_id" =~ ^[0-9]+$ ]] || { echo 'Não há CI/publicação aprovada para este commit.' >&2; exit 1; }
+          gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name "release-$RELEASE_SHA" --dir "$RUNNER_TEMP/release"
+          test "$(jq -r .source_run_id "$RUNNER_TEMP/release/release.json")" = "$run_id"
+          python3 infra/deploy/write_release_env.py "$RUNNER_TEMP/release/release.json" "$RUNNER_TEMP/release/release.env" \
+            --sha "$RELEASE_SHA" --repository "$GITHUB_REPOSITORY"
+      - name: Preparar SSH com chave do host conhecida
+        env:
+          DEPLOY_KEY: ${{ secrets.VPS_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          test -n "$DEPLOY_KEY" && test -n "$KNOWN_HOSTS"
+          umask 077
+          mkdir -p "$RUNNER_TEMP/minhaobra-ssh"
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/minhaobra-ssh/id"
+          printf '%s\n' "$KNOWN_HOSTS" > "$RUNNER_TEMP/minhaobra-ssh/known_hosts"
+          ssh-keygen -l -f "$RUNNER_TEMP/minhaobra-ssh/known_hosts" >/dev/null
+      - name: Transferir release sem configuração privada
+        run: |
+          ssh_options=(-i "$RUNNER_TEMP/minhaobra-ssh/id" -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$RUNNER_TEMP/minhaobra-ssh/known_hosts")
+          remote="$VPS_USER@$VPS_HOST"
+          destination="/var/www/apps/minha-obra/releases/$RELEASE_SHA"
+          ssh "${ssh_options[@]}" -p "$VPS_PORT" "$remote" "umask 077; mkdir -p '$destination'"
+          scp "${ssh_options[@]}" -P "$VPS_PORT" -r infra/postgres "$remote:$destination/"
+          scp "${ssh_options[@]}" -P "$VPS_PORT" \
+            infra/compose.prod.yml infra/deploy/deploy.sh infra/deploy/write_release_env.py \
+            "$RUNNER_TEMP/release/release.json" "$remote:$destination/"
+          ssh "${ssh_options[@]}" -p "$VPS_PORT" "$remote" "bash '$destination/deploy.sh' '$RELEASE_SHA' '$GITHUB_REPOSITORY'"
+      - name: Verificar HTTPS público
+        run: curl --fail --silent --show-error --retry 5 --retry-delay 5 --retry-all-errors --connect-timeout 10 --max-time 30 "$PRODUCTION_URL/healthz"
+      - name: Remover credenciais temporárias do runner
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/minhaobra-ssh/id" "$RUNNER_TEMP/minhaobra-ssh/known_hosts"
+          rmdir "$RUNNER_TEMP/minhaobra-ssh" 2>/dev/null || true
