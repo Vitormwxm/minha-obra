@@ -19,6 +19,12 @@ import retire_focuslab as base
 
 IMAGE_ID = re.compile(r"^sha256:[0-9a-f]{64}$")
 OWNED_TAG = re.compile(r"^focuslab-(?:backend|frontend):[0-9a-f]{40}$")
+# Legacy references observed on this VPS after the core retirement. Both the
+# immutable image ID and its single exact tag must match; latest alone is not proof.
+REVIEWED_LEGACY = {
+    "sha256:a1bf4f1cff4797b010dcb551a23a78b923637c7860af73d38237da53ed0944bf": "focuslab-principal-backend:latest",
+    "sha256:f2e824e14eb90de0bb3ac2383d78e5355949042c7b5ae6af81604c1df8974391": "focuslab_app:latest",
+}
 IMAGE_FORMAT = '{"id":{{json .Id}},"tags":{{json .RepoTags}},"digests":{{json .RepoDigests}},"size":{{json .Size}}}'
 CONSUMER_FORMAT = '{"id":{{json .Id}},"name":{{json .Name}},"image_id":{{json .Image}}}'
 
@@ -59,7 +65,7 @@ def image_consumers(inv, image_id):
 
 def preservation_reason(inv, item):
     tags = item.get("tags") or []
-    if not tags or not all(OWNED_TAG.fullmatch(tag) for tag in tags):
+    if not tags or not all(OWNED_TAG.fullmatch(tag) or REVIEWED_LEGACY.get(item["id"]) == tag for tag in tags):
         return "unproven/dangling/shared repository tags"
     if item.get("digests"):
         return "repository digest references require separate ownership review"
@@ -79,10 +85,15 @@ def image_plan(inv):
 
 def show(inv, selected):
     print("FOCUSLAB IMAGE PLAN (read-only by default)")
+    hidden = 0
     for image_id, item in inv.images.items():
         reason = preservation_reason(inv, item)
+        if reason is not None and not any(tag.startswith("focuslab") for tag in item.get("tags") or []):
+            hidden += 1
+            continue
         print(json.dumps({"id": image_id, "tags": item.get("tags") or [], "size_bytes": item.get("size"), "consumers": image_consumers(inv, image_id)}))
         print("  " + ("REMOVE by exact ID, without --force" if reason is None else "PRESERVE " + reason))
+    print(f"Preserved {hidden} other images outside the FocusLab allowlist (not enumerated).")
     print(f"Eligible images: {len(selected)}. Layer sharing means image size is not a promise of reclaimed disk space.")
 
 

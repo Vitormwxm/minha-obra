@@ -47,11 +47,21 @@ explícitas de descarte/deploy suspenso e revalida recursos antes de remover.
 Não utiliza limpeza global de volumes, sistema ou imagens compartilhadas.
 O plano precisa ser executado na VPS; não houve conexão SSH a partir deste PC.
 
+O operador executou a retirada da revisão 2f78c17556d22270bb93c155a5930f92218cc0db:
+três containers, cinco volumes, duas redes e os dois diretórios foram retirados;
+duas imagens da release ativa também. Permaneceram apenas os dois containers
+desconhecidos parados e imagens/caches sem prova de propriedade. Disco livre
+passou de 17 para 18 GB; RAM disponível de 1,1 para 1,4 GiB (dados arredondados
+do terminal). TLS/SSH/Python preservados. Não há container FocusLab em execução.
+
 Após a retirada principal, `infra/scripts/retire-focuslab-images.sh` planeja e
 remove somente imagens locais comprovadamente FocusLab com SHA de release,
 sem consumidores e sem tags compartilhadas. O padrão também é somente plano.
 Imagens desconhecidas/base, caches globais e a imagem dos dois containers
 desconhecidos são preservados. Scripts usam Python 3.10+ sem dependências pip.
+O inventário posterior identificou duas referências legadas, adicionadas à
+allowlist somente com ID imutável + tag exata: focuslab-principal-backend:latest
+e focuslab_app:latest. Uma tag latest com outro ID permanece protegida.
 
 ## Nova plataforma
 

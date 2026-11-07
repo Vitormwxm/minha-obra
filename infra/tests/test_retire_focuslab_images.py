@@ -57,6 +57,28 @@ class ImageTests(unittest.TestCase):
         image = self.inv.images["sha256:" + "6" * 64]
         self.assertIn("sweet_golick", images.preservation_reason(self.inv, image))
 
+    def test_reviewed_legacy_requires_the_exact_immutable_id_and_tag(self):
+        for image_id, tag in images.REVIEWED_LEGACY.items():
+            candidate = {"id": image_id, "tags": [tag], "digests": [], "size": 1}
+            self.assertIsNone(images.preservation_reason(self.inv, candidate))
+            candidate["id"] = "sha256:" + "0" * 64
+            self.assertIsNotNone(images.preservation_reason(self.inv, candidate))
+
+    def test_reviewed_legacy_still_preserves_aliases_and_container_consumers(self):
+        image_id, tag = next(iter(images.REVIEWED_LEGACY.items()))
+        candidate = {"id": image_id, "tags": [tag, "other-app:latest"], "digests": [], "size": 1}
+        self.assertIsNotNone(images.preservation_reason(self.inv, candidate))
+        candidate["tags"] = [tag]
+        self.inv.containers["a" * 64] = {"id": "a" * 64, "name": "another-app", "image_id": image_id}
+        self.assertIsNotNone(images.preservation_reason(self.inv, candidate))
+
+    def test_plan_summarizes_unknown_images_without_dumping_their_inventory(self):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            images.show(self.inv, images.image_plan(self.inv))
+        self.assertIn("other images outside the FocusLab allowlist", output.getvalue())
+        self.assertNotIn("sha256:" + "4" * 64, output.getvalue())
+
     def test_apply_removes_only_exact_selected_ids_without_force(self):
         current = copy.deepcopy(self.inv)
         calls = []
