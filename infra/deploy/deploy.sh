@@ -17,7 +17,7 @@ release_dir="$base/releases/$release_sha"
 [[ -f "$base/.env" && ! -L "$base/.env" ]] || fail 'Configuração privada da VPS ausente.'
 env_mode=$(stat -c '%a' "$base/.env")
 [[ $env_mode == 600 || $env_mode == 400 ]] || fail 'Proteja a configuração com chmod 600.'
-if grep -Eq '^(POSTGRES_PASSWORD|POSTGRES_ADMIN_PASSWORD|KAFKA_CLUSTER_ID)=REPLACE|^APP_DOMAIN=replace\\.' "$base/.env"; then
+if grep -Eq '^(POSTGRES_PASSWORD|POSTGRES_ADMIN_PASSWORD|KAFKA_CLUSTER_ID)=REPLACE|^APP_DOMAIN=replace\.' "$base/.env"; then
   fail 'Preencha a configuração privada; não usar os placeholders do exemplo.'
 fi
 for dependency in docker python3 flock realpath; do

@@ -62,8 +62,38 @@ desconhecidos são preservados. Scripts usam Python 3.10+ sem dependências pip.
 O inventário posterior identificou duas referências legadas, adicionadas à
 allowlist somente com ID imutável + tag exata: focuslab-principal-backend:latest
 e focuslab_app:latest. Uma tag latest com outro ID permanece protegida.
+O operador confirmou depois a remoção dessas duas imagens legadas. O disco
+continuou com 18 GB livres; as demais 135 imagens ficaram fora da allowlist.
 
 ## Nova plataforma
+
+Endereço confirmado pelo operador: **129.121.49.54**, SSH **22022**.
+Usaremos provisoriamente **focuslabapp.com**; em 06/11/2026 tanto o domínio
+principal como `www.focuslabapp.com` resolveram para esse IP. O certificado
+preservado cobre os dois nomes. A hospedagem anterior na Vercel continua
+independente: o código está no GitHub e a pipeline entrega imagens à VPS.
+
+O diretório da nova aplicação será `/var/www/apps/minha-obra`, com usuário
+dedicado `minhaobra-deploy`. A preparação não clona o repositório nem compila
+na VPS. O arquivo privado fica em `/var/www/apps/minha-obra/.env`, modo 600;
+senhas do PostgreSQL e identidade persistente do Kafka são geradas no servidor.
+Não sobrescrever esse arquivo em novas execuções nem trocar o cluster ID depois
+da criação do volume Kafka.
+
+`infra/scripts/bootstrap-vps.sh --public-key-file <arquivo-publico-ed25519>`
+prepara esses diretórios, usuário, grupo Docker e chave autorizada com `restrict`.
+Deve ser executado como root na VPS após conferir a revisão e o checksum.
+Não instala pacotes, modifica SSH/firewall, inicia containers ou exibe segredos.
+Uma segunda execução preserva o `.env` e não duplica a chave. A saída mostra a
+chave pública do host e a fingerprint para confirmação pela sessão existente.
+As políticas efetivas do SSH são apenas diagnosticadas; o acesso só estará
+confirmado após uma conexão nova com a chave dedicada. O grupo Docker permite
+administrar o daemon, por isso essa chave deve ficar exclusiva da publicação.
+
+Após o bootstrap ainda faltam: validar SSH/host key, integrar a PR, publicar as
+imagens, habilitar pull dos pacotes GHCR e acionar o deploy manual. Conferir
+também o webroot e o hook de recarga do Certbot antes de encerrar a migração;
+a preservação dos certificados não comprova a renovação da nova aplicação.
 
 Orçamento inicial dos containers: backend 640 MiB, Kafka 640 MiB,
 PostgreSQL 256 MiB e Nginx 64 MiB. São tetos de teste, não consumo observado.

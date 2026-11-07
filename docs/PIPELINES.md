@@ -40,6 +40,13 @@ Criar ambiente GitHub `production`, restrito à main, e configurar:
 | Variable | VPS_PORT | 22022, conforme inventário atual |
 | Variable | PRODUCTION_URL | Origem HTTPS do domínio definitivo |
 
+Estado de preparação em 06/11/2026: ambiente `production` restrito à main;
+`VPS_PORT=22022`, `PRODUCTION_URL=https://focuslabapp.com` e secrets
+`VPS_HOST`, `VPS_USER` e `VPS_SSH_KEY` configurados. A chave é exclusiva da
+pipeline; sua parte privada não está no Git. Falta confirmar a chave pública do
+host pela sessão administrativa da VPS para configurar `VPS_KNOWN_HOSTS`,
+executar o bootstrap e testar uma nova conexão SSH. Nenhum deploy foi acionado.
+
 Não usar SSH sem verificação de host nem colar chaves no chat/Git. Os secrets do
 repositório FocusLab não são automaticamente compartilhados com este repositório.
 
