@@ -72,7 +72,7 @@ jobs:
           ssh "${ssh_options[@]}" -p "$VPS_PORT" "$remote" "umask 077; mkdir -p '$destination'"
           scp "${ssh_options[@]}" -P "$VPS_PORT" -r infra/postgres "$remote:$destination/"
           scp "${ssh_options[@]}" -P "$VPS_PORT" \
-            infra/compose.prod.yml infra/deploy/deploy.sh infra/deploy/write_release_env.py \
+            infra/compose.prod.yml infra/deploy/deploy.sh infra/deploy/write_release_env.py infra/deploy/initialize_auth_key.py \
             "$RUNNER_TEMP/release/release.json" "$remote:$destination/"
           ssh "${ssh_options[@]}" -p "$VPS_PORT" "$remote" "bash '$destination/deploy.sh' '$RELEASE_SHA' '$GITHUB_REPOSITORY'"
       - name: Verificar HTTPS público

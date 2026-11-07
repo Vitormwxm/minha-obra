@@ -5,3 +5,15 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD}
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS}
+    admin:
+      auto-create: ${APP_EVENTS_ENABLED:true}
+
+app:
+  auth:
+    secure-cookies: true
+
+server:
+  servlet:
+    session:
+      cookie:
+        secure: true
