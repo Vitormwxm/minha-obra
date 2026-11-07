@@ -67,10 +67,17 @@ public class AccountRepository {
         return byId(id).orElseThrow();
     }
 
+    public boolean insertRequest(UUID id, String username, String displayName, String hash) {
+        return jdbc.update(
+                "INSERT INTO app_account(id,username,display_name,password_hash,role,status,must_change_password) VALUES (?,?,?,?,'USER','PENDING_APPROVAL',FALSE) ON CONFLICT (username) DO NOTHING",
+                id, username, displayName, hash) == 1;
+    }
+
     public Accounts.Page page(int page, int size, String search) {
         String predicate = "(?='' OR position(? in username)>0 OR position(? in lower(display_name))>0)";
         var items = jdbc
-                .query("SELECT * FROM app_account WHERE " + predicate + " ORDER BY created_at DESC,id LIMIT ? OFFSET ?",
+                .query("SELECT * FROM app_account WHERE " + predicate
+                                + " ORDER BY (status='PENDING_APPROVAL') DESC,created_at DESC,id LIMIT ? OFFSET ?",
                         MAPPER, search, search, search, size, (long) page * size)
                 .stream().map(Accounts.User::from).toList();
         long total = jdbc.queryForObject("SELECT count(*) FROM app_account WHERE " + predicate, Long.class, search,
@@ -137,6 +144,12 @@ public class AccountRepository {
                 "SELECT request_fingerprint,response_json FROM account_idempotency WHERE actor_id=? AND operation=? AND request_key=?",
                 (r, n) -> new CachedRequest(r.getString(1), r.getString(2)), actor, operation, key).stream()
                 .findFirst();
+    }
+
+    public Optional<CachedRequest> cachedRegistration(UUID key) {
+        return jdbc.query(
+                "SELECT request_fingerprint,response_json FROM account_idempotency WHERE operation='register' AND request_key=?",
+                (r, n) -> new CachedRequest(r.getString(1), r.getString(2)), key).stream().findFirst();
     }
 
     public void saveCached(UUID actor, String operation, UUID key, String fingerprint, String response) {

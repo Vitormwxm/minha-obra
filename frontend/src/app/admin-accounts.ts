@@ -3,9 +3,10 @@ import { Component, ElementRef, inject, input, OnDestroy, OnInit, output, signal
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AccountsApi, apiMessage } from './accounts-api';
 import { Account, AccountPage } from './accounts.models';
-import { newTemporaryPassword, normalizedUsername, OperationKey, passwordProblem, validUsername } from './security-input';
+import { newTemporaryPassword, OperationKey, passwordProblem } from './security-input';
 
-type AccountDialog = { kind: 'create' } | { kind: 'reset' | 'block' | 'unblock'; account: Account };
+type AccountAction = 'approve' | 'reset' | 'block' | 'unblock';
+type AccountDialog = { kind: AccountAction; account: Account };
 
 @Component({
   selector: 'app-admin-accounts',
@@ -35,8 +36,6 @@ export class AdminAccounts implements OnInit, OnDestroy {
   readonly passwordCopied = signal(false);
   readonly searchForm = this.forms.group({ search: ['', Validators.maxLength(120)] });
   readonly accountForm = this.forms.group({
-    username: ['', [Validators.required, Validators.maxLength(40)]],
-    displayName: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(120)]],
     temporaryPassword: ['', Validators.required],
   });
 
@@ -63,7 +62,7 @@ export class AdminAccounts implements OnInit, OnDestroy {
       }
       this.result.set(result);
       const state = this.dialog();
-      if (state && state.kind !== 'create') {
+      if (state) {
         const current = result.items.find((account) => account.id === state.account.id);
         if (current) this.dialog.set({ ...state, account: current });
       }
@@ -81,16 +80,9 @@ export class AdminAccounts implements OnInit, OnDestroy {
     void this.load(0);
   }
 
-  openCreate(): void { this.open({ kind: 'create' }); }
-
-  openAction(kind: 'reset' | 'block' | 'unblock', account: Account): void {
-    if (account.id === this.currentUser().id || account.role === 'ADMIN') return;
+  openAction(kind: AccountAction, account: Account): void {
+    if (!this.canAct(kind, account)) return;
     this.open({ kind, account });
-  }
-
-  target(): Account | null {
-    const state = this.dialog();
-    return state && state.kind !== 'create' ? state.account : null;
   }
 
   closeDialog(): void { this.close(false); }
@@ -127,21 +119,15 @@ export class AdminAccounts implements OnInit, OnDestroy {
 
   async submit(): Promise<void> {
     const state = this.dialog();
-    if (!state || this.busy()) return;
-    const values = this.accountForm.getRawValue();
-    this.accountForm.markAllAsTouched();
-    if (state.kind === 'create') {
-      if (!validUsername(normalizedUsername(values.username))) {
-        this.dialogMessage.set('Use de 3 a 40 letras minúsculas, números, pontos, hífens ou sublinhados. Comece com letra ou número.');
-        return;
-      }
-      if (values.displayName.trim().length < 2 || values.displayName.trim().length > 120) {
-        this.dialogMessage.set('Informe um nome de 2 a 120 caracteres.');
-        return;
-      }
+    if (!state || this.busy() || this.loading()) return;
+    if (!this.canAct(state.kind, state.account)) {
+      this.dialogMessage.set('A situação desta conta mudou. Confira a lista de contas.');
+      return;
     }
-    if (state.kind === 'create' || state.kind === 'reset') {
-      const problem = passwordProblem(values.temporaryPassword);
+    const { temporaryPassword } = this.accountForm.getRawValue();
+    this.accountForm.markAllAsTouched();
+    if (state.kind === 'reset') {
+      const problem = passwordProblem(temporaryPassword);
       if (problem) {
         this.dialogMessage.set(problem);
         return;
@@ -152,28 +138,24 @@ export class AdminAccounts implements OnInit, OnDestroy {
     this.dialogMessage.set('');
     this.notice.set('');
     try {
-      if (state.kind === 'create') {
-        const payload = {
-          username: normalizedUsername(values.username),
-          displayName: values.displayName.trim(),
-          temporaryPassword: values.temporaryPassword,
-        };
-        const key = await this.operationKey.forPayload('create-account', payload);
-        await this.api.createAccount(payload, key);
-        this.notice.set('Conta criada. Entregue os dados de acesso e a senha provisória que você definiu.');
-      } else if (state.kind === 'reset') {
-        const key = await this.operationKey.forPayload('reset-password:' + state.account.id,
-          { version: state.account.version, temporaryPassword: values.temporaryPassword });
-        await this.api.resetPassword(state.account, values.temporaryPassword, key);
-        this.notice.set('Senha provisória redefinida. Os acessos anteriores foram encerrados; entregue a nova senha à pessoa.');
+      const scope = state.kind + ':' + state.account.id;
+      const version = state.account.version;
+      if (state.kind === 'reset') {
+        const key = await this.operationKey.forPayload(scope, { version, temporaryPassword });
+        await this.api.resetPassword(state.account, temporaryPassword, key);
+        this.notice.set('Senha provisória definida. Entregue a nova senha à pessoa. Os acessos anteriores foram encerrados.');
       } else {
-        const key = await this.operationKey.forPayload(state.kind + ':' + state.account.id, { version: state.account.version });
-        await this.api.setBlocked(state.account, state.kind === 'block', key);
-        this.notice.set(state.kind === 'block' ? 'Conta bloqueada. Os acessos anteriores foram encerrados.' : 'Conta desbloqueada.');
+        const key = await this.operationKey.forPayload(scope, { version });
+        if (state.kind === 'approve') {
+          await this.api.approveAccount(state.account, key);
+          this.notice.set('Conta aprovada. A pessoa já pode entrar com a senha que escolheu.');
+        } else {
+          await this.api.setBlocked(state.account, state.kind === 'block', key);
+          this.notice.set(state.kind === 'block' ? 'Conta bloqueada. Os acessos anteriores foram encerrados.' : 'Conta desbloqueada.');
+        }
       }
-      this.operationKey.clear();
       this.close(true);
-      await this.load(state.kind === 'create' ? 0 : this.result().page);
+      await this.load();
     } catch (error) {
       await this.api.recoverCsrf(error);
       if (error instanceof HttpErrorResponse && error.status === 401) {
@@ -204,6 +186,14 @@ export class AdminAccounts implements OnInit, OnDestroy {
     }).format(date);
   }
 
+  private canAct(kind: AccountAction, account: Account): boolean {
+    if (account.id === this.currentUser().id || account.role === 'ADMIN') return false;
+    if (kind === 'approve') return account.status === 'PENDING_APPROVAL';
+    if (kind === 'block') return account.status === 'ACTIVE';
+    if (kind === 'unblock') return account.status === 'BLOCKED';
+    return account.status === 'ACTIVE' || account.status === 'BLOCKED';
+  }
+
   private open(state: AccountDialog): void {
     if (this.busy() || this.loading()) return;
     this.returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -217,8 +207,7 @@ export class AdminAccounts implements OnInit, OnDestroy {
       const dialog = this.dialogElement()?.nativeElement;
       if (!dialog || this.destroyed) return;
       dialog.showModal();
-      const id = state.kind === 'create' ? 'account-username' :
-        state.kind === 'reset' ? 'temporary-password' : 'dialog-cancel';
+      const id = state.kind === 'reset' ? 'temporary-password' : 'dialog-cancel';
       document.getElementById(id)?.focus();
     }, 0);
   }
@@ -227,6 +216,7 @@ export class AdminAccounts implements OnInit, OnDestroy {
     if (this.busy() && !force) return;
     this.dialogElement()?.nativeElement.close();
     this.accountForm.reset();
+    this.operationKey.clear();
     this.dialog.set(null);
     this.showTemporaryPassword.set(false);
     this.passwordCopied.set(false);

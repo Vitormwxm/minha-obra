@@ -8,6 +8,7 @@ import br.com.minhaobra.security.AttemptLimiter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.csrf.CsrfToken;
@@ -32,6 +33,14 @@ public class AuthController {
     @GetMapping("/csrf")
     public Accounts.Csrf csrf(CsrfToken token) {
         return new Accounts.Csrf(token.getToken(), token.getHeaderName());
+    }
+
+    @PostMapping("/register")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Accounts.Registration register(@RequestHeader("Idempotency-Key") UUID key,
+            @Valid @RequestBody Accounts.Register body, HttpServletRequest request) {
+        limits.register(request.getRemoteAddr());
+        return accounts.register(key, body);
     }
 
     @PostMapping("/login")

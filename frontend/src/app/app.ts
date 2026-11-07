@@ -2,10 +2,10 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AccountsApi, apiMessage } from './accounts-api';
-import { AuthSession, MfaSetup } from './accounts.models';
+import { ApiFailure, AuthSession, MfaSetup } from './accounts.models';
 import { AdminAccounts } from './admin-accounts';
 import { HomeArt } from './home-art';
-import { normalizedUsername, passwordProblem, validUsername } from './security-input';
+import { normalizedUsername, OperationKey, passwordProblem, validUsername } from './security-input';
 
 @Component({
   selector: 'app-root',
@@ -16,6 +16,7 @@ import { normalizedUsername, passwordProblem, validUsername } from './security-i
 export class App implements OnInit {
   private readonly api = inject(AccountsApi);
   private readonly forms = inject(FormBuilder).nonNullable;
+  private readonly registrationKey = new OperationKey();
   readonly isAndroidApp = /MinhaObraAndroid\//.test(navigator.userAgent);
   readonly session = signal<AuthSession | null>(null);
   readonly starting = signal(true);
@@ -24,6 +25,7 @@ export class App implements OnInit {
   readonly message = signal('');
   readonly notice = signal('');
   readonly page = signal<'overview' | 'accounts'>('overview');
+  readonly accessPage = signal<'login' | 'register' | 'requested'>('login');
   readonly changingPassword = signal(false);
   readonly showPassword = signal(false);
   readonly recoveryMode = signal(false);
@@ -34,6 +36,12 @@ export class App implements OnInit {
   readonly loginForm = this.forms.group({
     username: ['', [Validators.required, Validators.maxLength(40)]],
     password: ['', [Validators.required, Validators.maxLength(72)]],
+  });
+  readonly registrationForm = this.forms.group({
+    displayName: ['', [Validators.required, Validators.maxLength(120)]],
+    username: ['', [Validators.required, Validators.maxLength(40)]],
+    password: ['', Validators.required],
+    confirmPassword: ['', Validators.required],
   });
   readonly passwordForm = this.forms.group({
     currentPassword: ['', Validators.required],
@@ -76,10 +84,53 @@ export class App implements OnInit {
       this.applySession(await this.api.login(username, values.password));
       this.showPassword.set(false);
     } catch (error) {
-      await this.api.recoverCsrf(error);
-      this.message.set(apiMessage(error, 'Não foi possível entrar. Confira seu usuário e sua senha.'));
+      if (error instanceof HttpErrorResponse && error.status === 403 &&
+          (error.error as ApiFailure | null)?.code === 'ACCOUNT_PENDING_APPROVAL') {
+        this.setAccessPage('requested');
+      } else {
+        await this.api.recoverCsrf(error);
+        this.message.set(apiMessage(error, 'Não foi possível entrar. Confira seu usuário e sua senha.'));
+      }
     } finally {
       this.loginForm.controls.password.reset('');
+      this.busy.set(false);
+    }
+  }
+
+  showAccessPage(page: 'login' | 'register'): void {
+    if (this.busy()) return;
+    this.setAccessPage(page);
+  }
+
+  async requestAccount(): Promise<void> {
+    if (this.busy()) return;
+    this.registrationForm.markAllAsTouched();
+    const values = this.registrationForm.getRawValue();
+    const displayName = values.displayName.trim();
+    const username = normalizedUsername(values.username);
+    if (displayName.length < 2 || displayName.length > 120) {
+      this.message.set('Informe um nome de 2 a 120 caracteres.');
+      return;
+    }
+    if (!validUsername(username)) {
+      this.message.set('Informe um usuário válido, com 3 a 40 caracteres.');
+      return;
+    }
+    const problem = passwordProblem(values.password);
+    if (problem || values.password !== values.confirmPassword) {
+      this.message.set(problem ?? 'A confirmação precisa ser igual à senha.');
+      return;
+    }
+    this.begin();
+    try {
+      const payload = { displayName, username, password: values.password };
+      const key = await this.registrationKey.forPayload('request-account', payload);
+      await this.api.register(payload, key);
+      this.setAccessPage('requested');
+    } catch (error) {
+      await this.api.recoverCsrf(error);
+      this.message.set(apiMessage(error, 'Não foi possível enviar a solicitação. Tente novamente.'));
+    } finally {
       this.busy.set(false);
     }
   }
@@ -252,6 +303,7 @@ export class App implements OnInit {
   }
 
   private applySession(session: AuthSession): void {
+    this.accessPage.set('login');
     this.session.set(session);
     if (session.stage !== 'MFA_SETUP') this.mfaSetup.set(null);
     this.page.set('overview');
@@ -267,10 +319,24 @@ export class App implements OnInit {
     this.changingPassword.set(false);
     this.showPassword.set(false);
     this.loginForm.reset();
+    this.registrationForm.reset();
+    this.registrationKey.clear();
+    this.accessPage.set('login');
     this.passwordForm.reset();
     this.mfaForm.reset();
     this.page.set('overview');
     this.copied.set('');
+    this.focusTitle();
+  }
+
+  private setAccessPage(page: 'login' | 'register' | 'requested'): void {
+    this.loginForm.reset();
+    this.registrationForm.reset();
+    this.registrationKey.clear();
+    this.showPassword.set(false);
+    this.message.set('');
+    this.notice.set('');
+    this.accessPage.set(page);
     this.focusTitle();
   }
 

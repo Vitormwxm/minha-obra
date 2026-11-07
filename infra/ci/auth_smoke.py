@@ -163,18 +163,23 @@ def main():
     setup = admin.request("POST", "/api/auth/mfa/setup", {})
     confirmed = admin.request("POST", "/api/auth/mfa/confirm", {"code": totp(setup["secret"])})
     assert confirmed["session"]["stage"] == "AUTHENTICATED" and len(confirmed["recoveryCodes"]) >= 8
-    temporary = secrets.token_urlsafe(18)
-    create = {"username": "ci_person", "displayName": "Pessoa de teste CI", "temporaryPassword": temporary}
-    key = str(uuid.uuid4())
-    created = admin.request("POST", "/api/admin/users", create, expected=201, key=key)
-    replay = admin.request("POST", "/api/admin/users", create, expected=201, key=key)
-    assert created["id"] == replay["id"] and "passwordHash" not in created and "temporaryPassword" not in created
     person = Client(origin, context)
-    assert person.request("POST", "/api/auth/login", {"username": "ci_person", "password": temporary})["stage"] == "CHANGE_PASSWORD"
-    person.request("GET", "/api/account", expected=403)
     person_password = secrets.token_urlsafe(18)
-    assert person.request("POST", "/api/auth/change-password", {"currentPassword": temporary,
-        "newPassword": person_password})["stage"] == "AUTHENTICATED"
+    registration = {"username": "ci_person", "displayName": "Pessoa de teste CI", "password": person_password}
+    key = str(uuid.uuid4())
+    person.request("POST", "/api/auth/register", registration, expected=403, key=key, csrf=False)
+    pending = person.request("POST", "/api/auth/register", registration, expected=201, key=key)
+    assert pending == {"status": "PENDING_APPROVAL"}
+    assert person.request("POST", "/api/auth/register", registration, expected=201, key=key) == pending
+    login = {"username": "ci_person", "password": person_password}
+    assert person.request("POST", "/api/auth/login", login, expected=403)["code"] == "ACCOUNT_PENDING_APPROVAL"
+    person.request("GET", "/api/auth/me", expected=401)
+    user = latest_user(admin)
+    assert user["status"] == "PENDING_APPROVAL" and not user["mustChangePassword"]
+    approved = admin.request("POST", "/api/admin/users/" + user["id"] + "/approve",
+                             {"version": user["version"]}, key=str(uuid.uuid4()))
+    assert approved["status"] == "ACTIVE" and not approved["mustChangePassword"]
+    assert person.request("POST", "/api/auth/login", login)["stage"] == "AUTHENTICATED"
     person.request("GET", "/api/account")
     user = latest_user(admin)
     blocked = admin.request("POST", "/api/admin/users/" + user["id"] + "/block",
@@ -188,8 +193,11 @@ def main():
                    {"version": active["version"], "temporaryPassword": replacement}, key=str(uuid.uuid4()))
     person.request("GET", "/api/auth/me", expected=401)
     assert person.request("POST", "/api/auth/login", {"username": "ci_person", "password": replacement})["stage"] == "CHANGE_PASSWORD"
+    person.request("GET", "/api/account", expected=403)
+    assert person.request("POST", "/api/auth/change-password", {"currentPassword": replacement,
+        "newPassword": secrets.token_urlsafe(18)})["stage"] == "AUTHENTICATED"
     assert_events(compose)
-    print("HTTPS account lifecycle, CSRF, provisional passwords, MFA, revocation, idempotency and Kafka passed.")
+    print("HTTPS registration, approval, password reset, CSRF, MFA, revocation, idempotency and Kafka passed.")
 
 
 if __name__ == "__main__":

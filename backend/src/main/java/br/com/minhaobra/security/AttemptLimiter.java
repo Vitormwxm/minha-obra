@@ -13,15 +13,18 @@ import org.springframework.stereotype.Component;
 @Component
 public final class AttemptLimiter {
     private final Clock clock;
-    private final int loginLimit,ipLimit,mfaLimit;
+    private final int loginLimit,ipLimit,mfaLimit,registrationLimit;
     private final Map<String,Bucket> buckets=new HashMap<>();
     private final Semaphore hashes=new Semaphore(2);
     public AttemptLimiter(Clock clock,@Value("${app.auth.login-attempts-per-minute:6}") int loginLimit,
             @Value("${app.auth.ip-attempts-per-minute:30}") int ipLimit,
-            @Value("${app.auth.mfa-attempts-per-minute:6}") int mfaLimit) {
+            @Value("${app.auth.mfa-attempts-per-minute:6}") int mfaLimit,
+            @Value("${app.auth.registration-attempts-per-minute:6}") int registrationLimit) {
         this.clock=clock;this.loginLimit=loginLimit;this.ipLimit=ipLimit;this.mfaLimit=mfaLimit;
+        this.registrationLimit=registrationLimit;
     }
     public void login(String ip,String username) { take("ip:"+ip,ipLimit);take("login:"+username,loginLimit); }
+    public void register(String ip) { take("ip:"+ip,ipLimit);take("register:"+ip,registrationLimit); }
     public void mfa(String ip,String account) { take("ip:"+ip,ipLimit);take("mfa:"+account,mfaLimit); }
     private synchronized void take(String key,int limit) {
         long window=clock.millis()/60_000;

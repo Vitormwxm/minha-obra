@@ -12,7 +12,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -70,9 +69,14 @@ public class AccountService {
         String hash = found.map(Account::passwordHash).orElse(dummyHash);
         boolean matched = PasswordPolicy.validInputForHash(password)
                 && limits.hash(() -> passwords.matches(password, hash));
-        if (!matched || found.isEmpty() || !found.get().isActive())
+        if (!matched || found.isEmpty())
             throw ApiException.unauthorized();
-        return found.get();
+        Account account = found.get();
+        if (account.isPendingApproval())
+            throw new ApiException(403, "ACCOUNT_PENDING_APPROVAL", "Sua solicitação aguarda aprovação do administrador.");
+        if (!account.isActive())
+            throw ApiException.unauthorized();
+        return account;
     }
 
     @Transactional
@@ -104,24 +108,46 @@ public class AccountService {
     }
 
     @Transactional
-    public Accounts.User create(SessionPrincipal actor, UUID requestKey, Accounts.CreateUser request) {
-        requireAdmin(actor, true);
+    public Accounts.Registration register(UUID requestKey, Accounts.Register request) {
+        requireRequestKey(requestKey);
         String username = normalizeUsername(request.username());
         if (!username.matches("[a-z0-9][a-z0-9._-]{2,39}"))
             throw new ApiException(400, "INVALID_USERNAME",
                     "Use de 3 a 40 letras minúsculas, números, ponto, hífen ou sublinhado.");
         String name = request.displayName().trim();
-        if (name.length() < 2 || name.length() > 120)
+        if (name.length() < 2 || name.length() > 120 || name.codePoints().anyMatch(Character::isISOControl))
             throw new ApiException(400, "INVALID_NAME", "Informe um nome de 2 a 120 caracteres.");
-        PasswordPolicy.validate(request.temporaryPassword());
-        String fingerprint = crypto.fingerprint("admin-create", canonical(username, name, request.temporaryPassword()));
-        return idempotent(actor.accountId(), "create", requestKey, fingerprint, () -> {
-            if (repository.byUsername(username).isPresent())
-                throw new ApiException(409, "USERNAME_UNAVAILABLE", "Este nome de usuário já está em uso.");
-            String hash = limits.hash(() -> passwords.encode(request.temporaryPassword()));
-            Account created = repository.insert(UUID.randomUUID(), username, name, hash, "USER");
-            repository.event(actor.accountId(), created.id(), "ACCOUNT_CREATED");
-            return Accounts.User.from(created);
+        PasswordPolicy.validate(request.password());
+        String fingerprint = crypto.fingerprint("register", canonical(username, name, request.password()));
+        repository.requestLock("register-key:" + requestKey);
+        var cached = repository.cachedRegistration(requestKey);
+        if (cached.isPresent())
+            return replay(cached.get(), fingerprint, Accounts.Registration.class);
+
+        repository.requestLock("register-username:" + username);
+        if (repository.byUsername(username).isPresent())
+            throw unavailableUsername();
+        String hash = limits.hash(() -> passwords.encode(request.password()));
+        UUID id = UUID.randomUUID();
+        if (!repository.insertRequest(id, username, name, hash))
+            throw unavailableUsername();
+        repository.event(id, id, "ACCOUNT_REQUESTED");
+        Accounts.Registration result = new Accounts.Registration("PENDING_APPROVAL");
+        repository.saveCached(id, "register", requestKey, fingerprint, json.writeValueAsString(result));
+        return result;
+    }
+
+    @Transactional
+    public Accounts.User approve(SessionPrincipal actor, UUID target, UUID key, long version) {
+        requireAdmin(actor, true);
+        String operation = "approve:" + target;
+        return idempotent(actor.accountId(), operation, key, crypto.fingerprint(operation, Long.toString(version)), () -> {
+            Account account = editableUser(actor, target, version);
+            if (!account.isPendingApproval())
+                throw new ApiException(409, "ACCOUNT_NOT_PENDING", "Esta conta não aguarda aprovação.");
+            Account approved = repository.status(target, "ACTIVE");
+            repository.event(actor.accountId(), target, "ACCOUNT_APPROVED");
+            return Accounts.User.from(approved);
         });
     }
 
@@ -132,6 +158,7 @@ public class AccountService {
         return idempotent(actor.accountId(), operation, key, crypto.fingerprint(operation, Long.toString(version)),
                 () -> {
                     Account a = editableUser(actor, target, version);
+                    requireApproved(a);
                     String desired = blocked ? "BLOCKED" : "ACTIVE";
                     if (a.status().equals(desired))
                         return Accounts.User.from(a);
@@ -152,6 +179,7 @@ public class AccountService {
                 crypto.fingerprint(operation, canonical(Long.toString(request.version()), request.temporaryPassword())),
                 () -> {
                     Account a = editableUser(actor, target, request.version());
+                    requireApproved(a);
                     String hash = limits.hash(() -> passwords.encode(request.temporaryPassword()));
                     Account changed = repository.resetPassword(a.id(), hash);
                     repository.revokeSessions(target);
@@ -186,21 +214,37 @@ public class AccountService {
         return a;
     }
 
-    private Accounts.User idempotent(UUID actor, String operation, UUID key, String fingerprint,
-            Supplier<Accounts.User> work) {
+    private static void requireApproved(Account account) {
+        if (account.isPendingApproval())
+            throw new ApiException(409, "ACCOUNT_PENDING_APPROVAL", "Aprove a solicitação antes de alterar o acesso.");
+    }
+
+    private static ApiException unavailableUsername() {
+        return new ApiException(409, "USERNAME_UNAVAILABLE", "Não foi possível usar este nome de usuário.");
+    }
+
+    private static void requireRequestKey(UUID key) {
         if (key == null)
             throw new ApiException(400, "IDEMPOTENCY_KEY_REQUIRED", "Informe uma chave válida para a operação.");
+    }
+
+    private Accounts.User idempotent(UUID actor, String operation, UUID key, String fingerprint,
+            Supplier<Accounts.User> work) {
+        requireRequestKey(key);
         repository.requestLock(actor + ":" + operation + ":" + key);
         var cached = repository.cached(actor, operation, key);
-        if (cached.isPresent()) {
-            if (!java.security.MessageDigest.isEqual(fingerprint.getBytes(java.nio.charset.StandardCharsets.US_ASCII),
-                    cached.get().fingerprint().getBytes(java.nio.charset.StandardCharsets.US_ASCII)))
-                throw new ApiException(409, "IDEMPOTENCY_CONFLICT", "Esta chave já foi usada em outra solicitação.");
-            return json.readValue(cached.get().response(), Accounts.User.class);
-        }
+        if (cached.isPresent())
+            return replay(cached.get(), fingerprint, Accounts.User.class);
         Accounts.User result = work.get();
         repository.saveCached(actor, operation, key, fingerprint, json.writeValueAsString(result));
         return result;
+    }
+
+    private <T> T replay(AccountRepository.CachedRequest cached, String fingerprint, Class<T> type) {
+        if (!java.security.MessageDigest.isEqual(fingerprint.getBytes(java.nio.charset.StandardCharsets.US_ASCII),
+                cached.fingerprint().getBytes(java.nio.charset.StandardCharsets.US_ASCII)))
+            throw new ApiException(409, "IDEMPOTENCY_CONFLICT", "Esta chave já foi usada em outra solicitação.");
+        return json.readValue(cached.response(), type);
     }
 
     private static String canonical(String... fields) {

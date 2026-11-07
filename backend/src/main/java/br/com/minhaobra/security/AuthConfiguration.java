@@ -62,7 +62,7 @@ public class AuthConfiguration {
         http.authorizeHttpRequests(auth->auth
             .requestMatchers("/actuator/health","/actuator/health/**").permitAll()
             .requestMatchers(HttpMethod.GET,"/api/auth/csrf").permitAll()
-            .requestMatchers(HttpMethod.POST,"/api/auth/login").permitAll()
+            .requestMatchers(HttpMethod.POST,"/api/auth/login","/api/auth/register").permitAll()
             .requestMatchers("/api/auth/**").authenticated()
             .requestMatchers("/api/admin/**").hasRole("ADMIN")
             .requestMatchers("/api/**").hasAnyRole("USER","ADMIN")

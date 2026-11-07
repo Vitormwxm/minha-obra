@@ -3,7 +3,7 @@ export interface Account {
   username: string;
   displayName: string;
   role: 'ADMIN' | 'USER';
-  status: 'ACTIVE' | 'BLOCKED';
+  status: 'ACTIVE' | 'BLOCKED' | 'PENDING_APPROVAL';
   mustChangePassword: boolean;
   version: number;
   createdAt: string;
@@ -31,10 +31,14 @@ export interface MfaConfirmation {
   recoveryCodes: string[];
 }
 
-export interface AccountCreation {
+export interface AccountRequest {
   username: string;
   displayName: string;
-  temporaryPassword: string;
+  password: string;
+}
+
+export interface AccountRequestResult {
+  status: 'PENDING_APPROVAL';
 }
 
 export interface ApiFailure {
