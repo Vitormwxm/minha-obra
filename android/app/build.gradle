@@ -1,0 +1,47 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'br.com.minhaobra.app'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'br.com.minhaobra.app'
+        minSdk 26
+        targetSdk 35
+        versionCode 2
+        versionName '1.0.1'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint { abortOnError true }
+}
+
+def webAssetsDir = rootProject.file('../frontend/dist/minha-obra/browser')
+
+tasks.register('verifyWebAssets') {
+    group = 'verification'
+    description = 'Requires the Angular production build before packaging Android.'
+    doLast {
+        if (!new File(webAssetsDir, 'index.html').isFile()) {
+            throw new GradleException('Angular assets missing. Run npm ci and npm run build in frontend/ first.')
+        }
+    }
+}
+
+tasks.register('syncWebAssets', Sync) {
+    dependsOn 'verifyWebAssets'
+    from webAssetsDir
+    into layout.projectDirectory.dir('src/main/assets')
+}
+
+tasks.named('preBuild').configure { dependsOn 'syncWebAssets' }
