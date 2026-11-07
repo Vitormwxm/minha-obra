@@ -4,12 +4,15 @@ import android.app.Activity;
 import android.content.pm.ApplicationInfo;
 import android.graphics.Color;
 import android.net.Uri;
+import android.net.http.SslError;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.webkit.WebResourceRequest;
+import android.webkit.CookieManager;
+import android.webkit.SslErrorHandler;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -24,9 +27,9 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
-/** Offline host for the Angular production build. Remote content cannot execute. */
+/** Bundled Angular UI with same-origin HTTPS API access and first-party sessions. */
 public final class MainActivity extends Activity {
-    private static final String APP_HOST = "appassets.androidplatform.net";
+    private static final String APP_HOST = BuildConfig.APP_HOST;
     private static final String START_URL = "https://" + APP_HOST + "/assets/index.html";
     private WebView webView;
 
@@ -75,6 +78,9 @@ public final class MainActivity extends Activity {
         settings.setMediaPlaybackRequiresUserGesture(true);
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
+        settings.setUserAgentString(settings.getUserAgentString() + " MinhaObraAndroid/" + BuildConfig.VERSION_NAME);
+        CookieManager.getInstance().setAcceptCookie(true);
+        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false);
         WebView.setWebContentsDebuggingEnabled(
                 (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0);
         webView.setWebViewClient(new LocalContentClient());
@@ -105,8 +111,19 @@ public final class MainActivity extends Activity {
         @Override
         public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
             Uri uri = request.getUrl();
-            if (!"GET".equals(request.getMethod()) || !hasAppOrigin(uri)) return errorResponse(403);
+            if (!hasAppOrigin(uri)) return errorResponse(403);
             String path = uri.getPath();
+            // Only API requests reach the network. Keeping the bundle on the
+            // server's HTTPS origin lets HttpOnly/Secure cookies and CSRF work
+            // without CORS exceptions or exposing a native credential bridge.
+            if (path != null && path.startsWith("/api/")) {
+                String method = request.getMethod();
+                if (method.equals("GET") || method.equals("HEAD") || method.equals("POST")
+                        || method.equals("PUT") || method.equals("PATCH") || method.equals("DELETE")
+                        || method.equals("OPTIONS")) return null;
+                return errorResponse(403);
+            }
+            if (!"GET".equals(request.getMethod())) return errorResponse(403);
             if (path == null || !path.startsWith("/assets/")) return errorResponse(403);
             String assetPath = path.substring("/assets/".length());
             if (assetPath.isEmpty() || assetPath.indexOf('\\') >= 0 || assetPath.indexOf('\0') >= 0) {
@@ -125,7 +142,7 @@ public final class MainActivity extends Activity {
                 headers.put("Cache-Control", "no-store");
                 headers.put("Content-Security-Policy", "default-src 'none'; script-src 'self'; "
                         + "style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; "
-                        + "connect-src 'none'; object-src 'none'; base-uri 'self'; frame-src 'none'; form-action 'none'");
+                        + "connect-src 'self'; object-src 'none'; base-uri 'self'; frame-src 'none'; form-action 'none'");
                 return new WebResourceResponse(type, encoding, 200, "OK", headers, stream);
             } catch (IOException notFound) {
                 return errorResponse(404);
@@ -135,6 +152,11 @@ public final class MainActivity extends Activity {
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
             return !isTrustedPage(request.getUrl().toString());
+        }
+
+        @Override
+        public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+            handler.cancel();
         }
     }
 
@@ -170,6 +192,7 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onPause() {
+        CookieManager.getInstance().flush();
         webView.onPause();
         super.onPause();
     }

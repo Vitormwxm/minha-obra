@@ -1,5 +1,10 @@
 plugins { id 'com.android.application' }
 
+def minhaObraHost = providers.gradleProperty('minhaObraHost').orElse('focuslabapp.com').get().toLowerCase(Locale.ROOT)
+if (minhaObraHost.length() > 253 || !minhaObraHost.matches('(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?')) {
+    throw new GradleException('minhaObraHost must contain only a valid HTTPS domain, without a path or port.')
+}
+
 android {
     namespace 'br.com.minhaobra.app'
     compileSdk 35
@@ -10,7 +15,10 @@ android {
         targetSdk 35
         versionCode 2
         versionName '1.0.1'
+        buildConfigField 'String', 'APP_HOST', '"' + minhaObraHost + '"'
     }
+
+    buildFeatures { buildConfig true }
 
     buildTypes {
         release {

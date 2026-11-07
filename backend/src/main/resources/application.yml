@@ -30,10 +30,15 @@ spring:
     admin:
       auto-create: false
     producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
       acks: all
       properties:
         enable.idempotence: true
         max.in.flight.requests.per.connection: 5
+        max.block.ms: 5000
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 15000
     consumer:
       enable-auto-commit: false
       auto-offset-reset: earliest
@@ -41,10 +46,28 @@ spring:
     listener:
       ack-mode: record
       missing-topics-fatal: true
+  session:
+    timeout: 30m
+    jdbc:
+      initialize-schema: never
+
+app:
+  auth:
+    encryption-key: ${APP_TOTP_ENCRYPTION_KEY:}
+    secure-cookies: false
+  events:
+    enabled: ${APP_EVENTS_ENABLED:false}
 
 server:
   port: 8080
   shutdown: graceful
+  servlet:
+    session:
+      cookie:
+        name: MINHAOBRA_SESSION
+        http-only: true
+        same-site: lax
+        path: /
 
 management:
   endpoints:

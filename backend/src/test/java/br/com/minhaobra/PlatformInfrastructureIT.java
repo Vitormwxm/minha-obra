@@ -48,6 +48,8 @@ class PlatformInfrastructureIT {
         properties.add("spring.datasource.hikari.schema", () -> SCHEMA);
         properties.add("spring.flyway.schemas", () -> SCHEMA);
         properties.add("spring.flyway.default-schema", () -> SCHEMA);
+        properties.add("app.auth.encryption-key", () -> "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
+        properties.add("app.events.enabled", () -> "false");
     }
 
     @AfterAll
@@ -90,8 +92,8 @@ class PlatformInfrastructureIT {
 
     @Test
     void keepsConfigurationEndpointsAndProductRoutesUnpublished() throws Exception {
-        assertEquals(404, get("/actuator/env").statusCode());
-        assertEquals(404, get("/api").statusCode());
+        assertEquals(401, get("/actuator/env").statusCode());
+        assertEquals(401, get("/api").statusCode());
     }
 
     private HttpResponse<String> get(String path) throws Exception {

@@ -3,59 +3,137 @@
   <header class="app-header">
     <a class="brand" href="#conteudo" aria-label="Minha Obra, início">
       <span class="brand-symbol" aria-hidden="true">
-        <svg viewBox="0 0 32 32" fill="none">
-          <path d="m5 15 11-9 11 9M9 13v13h14V13M14 26v-9h4v9" />
-        </svg>
+        <svg viewBox="0 0 32 32" fill="none"><path d="m5 15 11-9 11 9M9 13v13h14V13M14 26v-9h4v9" /></svg>
       </span>
       <span>Minha Obra</span>
     </a>
-    <span class="environment">Ambiente inicial</span>
+    @if (session(); as current) {
+      <div class="header-account"><span class="header-name">{{ current.user.displayName }}</span><button class="text-button logout" type="button" (click)="logout()" [disabled]="busy() || adminBusy()">Sair</button></div>
+    } @else {
+      <span class="environment"><span aria-hidden="true"></span>Seu espaço, sua obra</span>
+    }
   </header>
 
   <main id="conteudo" tabindex="-1">
-    <section class="welcome" aria-labelledby="welcome-title">
-      <div class="welcome-copy">
-        <span class="eyebrow">CADA ETAPA CONTA</span>
-        <h1 id="welcome-title">Uma boa obra começa com uma base sólida.</h1>
-        <p class="lead">
-          Estamos preparando um novo espaço para você acompanhar a sua obra com mais clareza e
-          organização.
-        </p>
-        <p class="status"><span aria-hidden="true"></span>Plataforma em preparação</p>
-      </div>
-      <div class="building-art" aria-hidden="true">
-        <div class="art-grid"></div>
-        <svg viewBox="0 0 360 300" fill="none">
-          <path class="ground" d="M35 248h290M60 266h240" />
-          <path class="outline" d="m69 137 111-84 111 84M91 121v127h178V121" />
-          <path class="building-fill" d="M113 138h134v110H113z" />
-          <path
-            class="outline"
-            d="M113 138h134v110H113zM157 248v-64h46v64M132 157h18v21h-18zM210 157h18v21h-18z"
-          />
-          <path class="detail" d="M180 28v13M46 137H32M328 137h-14M72 65l10 10M288 65l-10 10" />
-          <path
-            class="measurement"
-            d="M90 283h179M90 278v10M269 278v10M309 138v110M304 138h10M304 248h10"
-          />
-        </svg>
-        <span class="art-caption">Planejar. Construir. Acompanhar.</span>
-      </div>
-    </section>
+    @if (message()) {
+      <div class="alert error" role="alert"><span aria-hidden="true">!</span><p>{{ message() }}</p></div>
+    }
+    @if (notice()) {
+      <div class="alert success" role="status"><span aria-hidden="true">✓</span><p>{{ notice() }}</p></div>
+    }
 
-    <aside class="preparation-note" aria-labelledby="preparation-title">
-      <span class="note-icon" aria-hidden="true">01</span>
-      <div>
-        <h2 id="preparation-title">Estamos no primeiro passo.</h2>
-        <p>
-          Este ambiente apresenta a base da plataforma. Os recursos de gestão ainda estão em
-          desenvolvimento.
-        </p>
+    @if (starting()) {
+      <section class="loading-state" aria-live="polite" aria-busy="true"><span class="spinner" aria-hidden="true"></span><h1 tabindex="-1">Preparando seu acesso</h1><p>Só um instante.</p></section>
+    } @else if (!session()) {
+      <section class="login-layout" aria-labelledby="login-title">
+        <div class="intro-copy">
+          <span class="eyebrow">CADA ETAPA CONTA</span>
+          <h1 id="login-title" tabindex="-1">Um lugar para acompanhar o que você está construindo.</h1>
+          <p class="lead">Mais clareza e organização para a jornada até a entrega do seu apartamento.</p>
+          <app-home-art />
+        </div>
+        <div class="access-card">
+          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M7 10V7a5 5 0 0 1 10 0v3M6 10h12v11H6zM12 14v3" /></svg></span>
+          <h2>Que bom ter você aqui.</h2>
+          <p class="card-description">Entre com os dados do seu acesso.</p>
+          <form [formGroup]="loginForm" (ngSubmit)="login()" [attr.aria-busy]="busy()">
+            <div class="field">
+              <label for="login-username">Usuário</label>
+              <input id="login-username" formControlName="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="40" placeholder="Seu nome de usuário" [attr.aria-invalid]="loginForm.controls.username.touched && loginForm.controls.username.invalid" />
+            </div>
+            <div class="field">
+              <label for="login-password">Senha</label>
+              <div class="password-input">
+                <input id="login-password" formControlName="password" [type]="showPassword() ? 'text' : 'password'" autocomplete="current-password" maxlength="72" placeholder="Sua senha" [attr.aria-invalid]="loginForm.controls.password.touched && loginForm.controls.password.invalid" />
+                <button type="button" (click)="showPassword.set(!showPassword())" [attr.aria-pressed]="showPassword()" [attr.aria-label]="showPassword() ? 'Ocultar senha' : 'Mostrar senha'">{{ showPassword() ? 'Ocultar' : 'Mostrar' }}</button>
+              </div>
+            </div>
+            <button class="primary-button full-width" type="submit" [disabled]="busy()">
+              @if (busy()) { <span class="button-spinner" aria-hidden="true"></span> }
+              {{ busy() ? 'Entrando…' : 'Entrar na minha conta' }}
+              @if (!busy()) { <span aria-hidden="true">→</span> }
+            </button>
+          </form>
+          <div class="access-help"><strong>Precisa de acesso ou esqueceu a senha?</strong><p>Fale com o administrador para receber seus dados ou uma nova senha provisória.</p></div>
+          @if (message()) { <button class="text-button retry" type="button" (click)="start()" [disabled]="busy()">Verificar conexão novamente</button> }
+        </div>
+      </section>
+    } @else if (session()?.stage === 'CHANGE_PASSWORD' || changingPassword()) {
+      <section class="centered-flow" aria-labelledby="password-title">
+        <div class="flow-heading"><span class="eyebrow">SEU ACESSO</span><h1 id="password-title" tabindex="-1">{{ changingPassword() ? 'Uma nova senha para sua conta.' : 'Antes de começar, escolha sua senha.' }}</h1><p>{{ changingPassword() ? 'Confirme a senha atual e defina uma nova.' : 'A senha provisória abriu a porta. Agora deixe o acesso só com você.' }}</p></div>
+        <div class="flow-card">
+          <form [formGroup]="passwordForm" (ngSubmit)="changePassword()" [attr.aria-busy]="busy()">
+            <div class="field"><label for="current-password">{{ changingPassword() ? 'Senha atual' : 'Senha provisória' }}</label><input id="current-password" type="password" formControlName="currentPassword" autocomplete="current-password" maxlength="72" /></div>
+            <div class="field"><label for="new-password">Nova senha</label><input id="new-password" type="password" formControlName="newPassword" autocomplete="new-password" maxlength="72" aria-describedby="password-help" /><small id="password-help">Use de 12 a 64 caracteres. Você pode usar espaços.</small></div>
+            <div class="field"><label for="confirm-password">Confirme a nova senha</label><input id="confirm-password" type="password" formControlName="confirmPassword" autocomplete="new-password" maxlength="72" /></div>
+            <button class="primary-button full-width" type="submit" [disabled]="busy()">{{ busy() ? 'Atualizando…' : 'Salvar nova senha' }}</button>
+            @if (changingPassword()) { <button class="text-button full-width secondary-action" type="button" (click)="cancelPasswordChange()" [disabled]="busy()">Voltar à minha conta</button> }
+          </form>
+        </div>
+      </section>
+    } @else if (recoveryCodes().length) {
+      <section class="centered-flow recovery-flow" aria-labelledby="recovery-title">
+        <div class="flow-heading"><span class="eyebrow">ÚLTIMO PASSO</span><h1 id="recovery-title" tabindex="-1">Guarde seus códigos de recuperação.</h1><p>Eles permitem entrar se você perder o acesso ao autenticador. Cada código funciona uma única vez, junto com sua senha.</p></div>
+        <div class="flow-card">
+          <p class="inline-note">Estes códigos só serão exibidos agora. Guarde-os em um local seguro.</p>
+          <ul class="recovery-codes" aria-label="Códigos de recuperação">@for (code of recoveryCodes(); track code) { <li><code>{{ code }}</code></li> }</ul>
+          <div class="split-actions">
+            <button class="secondary-button" type="button" (click)="copy(recoveryCodes().join('\n'), 'recovery')">{{ copied() === 'recovery' ? 'Códigos copiados' : 'Copiar códigos' }}</button>
+            @if (!isAndroidApp) { <button class="secondary-button" type="button" (click)="downloadRecovery()">Baixar arquivo</button> }
+          </div>
+          <label class="check-label"><input type="checkbox" [checked]="recoverySaved()" (change)="recoverySaved.set($any($event.target).checked)" /><span>Guardei os códigos e posso continuar.</span></label>
+          <button class="primary-button full-width" type="button" [disabled]="!recoverySaved()" (click)="finishRecovery()">Ir para minha conta <span aria-hidden="true">→</span></button>
+        </div>
+      </section>
+    } @else if (session()?.stage === 'MFA_SETUP') {
+      <section class="centered-flow" aria-labelledby="setup-title">
+        <div class="flow-heading"><span class="eyebrow">ACESSO ADMINISTRATIVO</span><h1 id="setup-title" tabindex="-1">Uma camada a mais de proteção.</h1><p>Use um aplicativo autenticador gratuito, como Google Authenticator ou Microsoft Authenticator, para proteger o painel.</p></div>
+        <div class="flow-card">
+          @if (mfaSetup(); as setup) {
+            <ol class="setup-steps"><li>Abra seu autenticador e escolha adicionar uma conta com chave de configuração.</li><li>Use o nome <strong>Minha Obra</strong>, cole a chave abaixo e selecione o tipo <strong>baseado em tempo</strong>.</li></ol>
+            <div class="secret-panel"><span>Chave de configuração</span><code>{{ groupedSecret() }}</code><button class="text-button" type="button" (click)="copy(setup.secret, 'secret')">{{ copied() === 'secret' ? 'Chave copiada' : 'Copiar chave' }}</button></div>
+            <form [formGroup]="mfaForm" (ngSubmit)="confirmMfa()" [attr.aria-busy]="busy()">
+              <div class="field"><label for="setup-code">Código do autenticador</label><input class="otp-input" id="setup-code" formControlName="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="000000" /><small>Digite o código de 6 números exibido no aplicativo.</small></div>
+              <button class="primary-button full-width" type="submit" [disabled]="busy()">{{ busy() ? 'Confirmando…' : 'Ativar autenticador' }}</button>
+              <button class="text-button full-width secondary-action" type="button" (click)="setupMfa()" [disabled]="busy()">Gerar outra chave de configuração</button>
+            </form>
+          } @else {
+            <span class="large-step" aria-hidden="true">02</span><h2>Configure uma vez. Use a cada acesso.</h2><p class="card-description">Sua senha e o código do autenticador serão necessários para entrar como administrador.</p>
+            <button class="primary-button full-width" type="button" (click)="setupMfa()" [disabled]="busy()">{{ busy() ? 'Preparando…' : 'Configurar autenticador' }}</button>
+          }
+        </div>
+      </section>
+    } @else if (session()?.stage === 'MFA_VERIFY') {
+      <section class="centered-flow narrow-flow" aria-labelledby="verify-title">
+        <div class="flow-heading"><span class="eyebrow">ACESSO ADMINISTRATIVO</span><h1 id="verify-title" tabindex="-1">{{ recoveryMode() ? 'Use um código de recuperação.' : 'Confirme que é você.' }}</h1><p>{{ recoveryMode() ? 'Digite um dos códigos que você guardou ao configurar o autenticador.' : 'Abra seu aplicativo autenticador e informe o código da conta Minha Obra.' }}</p></div>
+        <div class="flow-card">
+          <form [formGroup]="mfaForm" (ngSubmit)="verifyMfa()" [attr.aria-busy]="busy()">
+            <div class="field"><label for="verify-code">{{ recoveryMode() ? 'Código de recuperação' : 'Código do autenticador' }}</label><input id="verify-code" formControlName="code" type="text" [class.otp-input]="!recoveryMode()" [attr.inputmode]="recoveryMode() ? 'text' : 'numeric'" [attr.autocomplete]="recoveryMode() ? 'off' : 'one-time-code'" [attr.maxlength]="recoveryMode() ? 64 : 6" [placeholder]="recoveryMode() ? 'Seu código de recuperação' : '000000'" autocapitalize="none" spellcheck="false" /></div>
+            <button class="primary-button full-width" type="submit" [disabled]="busy()">{{ busy() ? 'Verificando…' : 'Confirmar e entrar' }}</button>
+            <button class="text-button full-width secondary-action" type="button" (click)="switchRecoveryMode()" [disabled]="busy()">{{ recoveryMode() ? 'Usar aplicativo autenticador' : 'Usar código de recuperação' }}</button>
+          </form>
+        </div>
+      </section>
+    } @else if (session(); as current) {
+      <div class="workspace">
+        <nav class="workspace-nav" aria-label="Minha conta">
+          <button type="button" [class.selected]="page() === 'overview'" [attr.aria-current]="page() === 'overview' ? 'page' : null" (click)="page.set('overview')" [disabled]="adminBusy()">Visão geral</button>
+          @if (current.user.role === 'ADMIN') { <button type="button" [class.selected]="page() === 'accounts'" [attr.aria-current]="page() === 'accounts' ? 'page' : null" (click)="page.set('accounts')" [disabled]="adminBusy()">Pessoas e acessos</button> }
+        </nav>
+        @if (page() === 'accounts' && current.user.role === 'ADMIN') {
+          <app-admin-accounts [currentUser]="current.user" (expired)="sessionExpired()" (processing)="adminBusy.set($event)" />
+        } @else {
+          <section class="overview" aria-labelledby="overview-title">
+            <div class="overview-heading"><span class="eyebrow">{{ current.user.role === 'ADMIN' ? 'PAINEL ADMINISTRATIVO' : 'MINHA CONTA' }}</span><h1 id="overview-title" tabindex="-1">Olá, {{ current.user.displayName }}.</h1><p>Seu acesso está pronto. Que bom construir o próximo passo com você.</p></div>
+            @if (current.user.role === 'ADMIN') {
+              <article class="feature-card admin-feature"><span class="feature-number" aria-hidden="true">01</span><div><span class="eyebrow">ADMINISTRAÇÃO</span><h2>Organize os acessos à plataforma.</h2><p>Crie contas, entregue senhas provisórias e gerencie bloqueios em um só lugar.</p></div><button class="primary-button" type="button" (click)="page.set('accounts')">Gerenciar pessoas <span aria-hidden="true">→</span></button></article>
+            }
+            <article class="feature-card coming-next"><span class="feature-number" aria-hidden="true">↗</span><div><span class="eyebrow">O PRÓXIMO PASSO</span><h2>Sua obra, com mais clareza.</h2><p>Os recursos para acompanhar financiamento, pagamentos e projeções ainda estão em preparação.</p><span class="status-tag neutral">Em preparação</span></div></article>
+            <div class="account-settings"><div><h2>Cuide do seu acesso</h2><p>Você entrou como <strong>{{ current.user.username }}</strong>.</p></div><button class="secondary-button" type="button" (click)="openPasswordChange()" [disabled]="adminBusy()">Alterar minha senha</button></div>
+          </section>
+        }
       </div>
-    </aside>
+    }
   </main>
-
-  <footer class="app-footer">
-    <span>Minha Obra</span><span>Construindo o próximo passo.</span>
-  </footer>
+  <footer class="app-footer"><span>Minha Obra</span><span>Construindo o próximo passo.</span></footer>
 </div>

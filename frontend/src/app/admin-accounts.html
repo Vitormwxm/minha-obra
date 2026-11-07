@@ -1,0 +1,94 @@
+<section aria-labelledby="accounts-title" class="accounts">
+  <div class="section-heading">
+    <div><span class="eyebrow">ADMINISTRAÇÃO</span><h1 id="accounts-title" tabindex="-1">Pessoas e acessos</h1><p>Crie e gerencie as contas da plataforma.</p></div>
+    <button class="primary-button" type="button" (click)="openCreate()" [disabled]="loading() || busy()"><span aria-hidden="true">+</span>Nova conta</button>
+  </div>
+  @if (message()) { <div class="alert error" role="alert"><span aria-hidden="true">!</span><p>{{ message() }}</p></div> }
+  @if (notice()) { <div class="alert success" role="status"><span aria-hidden="true">✓</span><p>{{ notice() }}</p></div> }
+  <div class="accounts-panel">
+    <div class="panel-toolbar">
+      <form [formGroup]="searchForm" (ngSubmit)="search()" class="search-form" role="search">
+        <label class="visually-hidden" for="account-search">Buscar por nome ou usuário</label>
+        <input id="account-search" formControlName="search" type="search" maxlength="120" placeholder="Buscar por nome ou usuário" autocomplete="off" />
+        <button class="secondary-button" type="submit" [disabled]="loading() || busy()">Buscar</button>
+      </form>
+      <button class="text-button refresh" type="button" (click)="load()" [disabled]="loading() || busy()">{{ loading() ? 'Atualizando…' : 'Atualizar lista' }}</button>
+    </div>
+    <div class="list-heading" aria-hidden="true"><span>Pessoa</span><span>Acesso</span><span>Criada em</span><span>Ações</span></div>
+    <div [attr.aria-busy]="loading()" aria-live="polite">
+      @if (loading() && !result().items.length) {
+        <div class="empty-state"><span class="spinner" aria-hidden="true"></span><p>Carregando as contas…</p></div>
+      } @else if (!result().items.length) {
+        <div class="empty-state"><span class="empty-symbol" aria-hidden="true">⌕</span><h2>{{ searchForm.controls.search.value ? 'Nenhuma conta encontrada.' : 'As contas aparecerão aqui.' }}</h2><p>{{ searchForm.controls.search.value ? 'Tente outro nome ou usuário na busca.' : 'Crie uma conta para dar acesso a uma pessoa.' }}</p></div>
+      } @else {
+        <ul class="account-list" aria-label="Contas">
+          @for (account of result().items; track account.id) {
+            <li class="account-row">
+              <div class="person">
+                <span class="avatar" aria-hidden="true">{{ account.displayName.charAt(0).toUpperCase() }}</span>
+                <div><h2>{{ account.displayName }} @if (account.id === currentUser().id) { <span class="you">você</span> }</h2><p>{{ account.username }}</p></div>
+              </div>
+              <div class="account-access">
+                <span class="status-tag" [class.active]="account.status === 'ACTIVE'" [class.blocked]="account.status === 'BLOCKED'"><span class="status-dot" aria-hidden="true"></span>{{ account.status === 'ACTIVE' ? 'Ativa' : 'Bloqueada' }}</span>
+                <small>{{ account.role === 'ADMIN' ? 'Administrador' : 'Usuário' }}</small>
+                @if (account.mustChangePassword) { <span class="password-pending">Troca de senha pendente</span> }
+              </div>
+              <div class="creation-date"><span class="mobile-label">Criada em </span>{{ createdOn(account.createdAt) }}</div>
+              <div class="row-actions">
+                @if (account.role !== 'ADMIN' && account.id !== currentUser().id) {
+                  <button type="button" class="row-action" (click)="openAction('reset', account)" [disabled]="loading() || busy()" [attr.aria-label]="'Redefinir senha de ' + account.displayName">Redefinir senha</button>
+                  @if (account.status === 'ACTIVE') {
+                    <button type="button" class="row-action block-action" (click)="openAction('block', account)" [disabled]="loading() || busy()" [attr.aria-label]="'Bloquear conta de ' + account.displayName">Bloquear</button>
+                  } @else {
+                    <button type="button" class="row-action" (click)="openAction('unblock', account)" [disabled]="loading() || busy()" [attr.aria-label]="'Desbloquear conta de ' + account.displayName">Desbloquear</button>
+                  }
+                } @else { <span class="protected-account">Acesso administrativo</span> }
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+    <div class="pagination">
+      <p>{{ firstItem() }}–{{ lastItem() }} de {{ result().total }} {{ result().total === 1 ? 'conta' : 'contas' }}</p>
+      <div><button class="pagination-button" type="button" (click)="load(result().page - 1)" [disabled]="loading() || busy() || result().page === 0" aria-label="Página anterior">←</button><span>Página {{ result().page + 1 }}</span><button class="pagination-button" type="button" (click)="load(result().page + 1)" [disabled]="loading() || busy() || lastItem() >= result().total" aria-label="Próxima página">→</button></div>
+    </div>
+  </div>
+  <div class="admin-note"><span aria-hidden="true">↗</span><p>As pessoas recebem uma senha provisória e escolhem uma nova no primeiro acesso. O painel gerencia contas; os dados financeiros são individuais.</p></div>
+</section>
+
+<dialog #accountDialog class="account-dialog" aria-labelledby="dialog-title" (cancel)="cancelDialog($event)">
+  @if (dialog(); as state) {
+    <div class="dialog-top"><span class="eyebrow">PESSOAS E ACESSOS</span><button type="button" class="close-dialog" (click)="closeDialog()" [disabled]="busy()" aria-label="Fechar">×</button></div>
+    <h2 id="dialog-title">{{ state.kind === 'create' ? 'Uma nova pessoa por aqui.' : state.kind === 'reset' ? 'Defina uma senha provisória.' : state.kind === 'block' ? 'Bloquear esta conta?' : 'Desbloquear esta conta?' }}</h2>
+    @if (target(); as account) { <p class="dialog-person"><strong>{{ account.displayName }}</strong><span>{{ account.username }}</span></p> }
+    @if (dialogMessage()) { <div class="alert error" role="alert"><p>{{ dialogMessage() }}</p></div> }
+    <form [formGroup]="accountForm" (ngSubmit)="submit()" [attr.aria-busy]="busy()">
+      @if (state.kind === 'create') {
+        <p class="dialog-description">Preencha os dados e entregue o acesso diretamente à pessoa.</p>
+        <div class="field"><label for="account-display-name">Nome</label><input id="account-display-name" formControlName="displayName" autocomplete="off" maxlength="120" placeholder="Como a pessoa se chama" [attr.aria-invalid]="accountForm.controls.displayName.touched && accountForm.controls.displayName.invalid" /></div>
+        <div class="field"><label for="account-username">Usuário</label><input id="account-username" formControlName="username" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="40" placeholder="Ex.: maria.silva" aria-describedby="username-help" [attr.aria-invalid]="accountForm.controls.username.touched && accountForm.controls.username.invalid" /><small id="username-help">De 3 a 40 caracteres. Use letras, números, ponto, hífen ou sublinhado.</small></div>
+      }
+      @if (state.kind === 'create' || state.kind === 'reset') {
+        <div class="field">
+          <label for="temporary-password">Senha provisória</label>
+          <div class="password-input"><input id="temporary-password" formControlName="temporaryPassword" [type]="showTemporaryPassword() ? 'text' : 'password'" autocomplete="new-password" maxlength="72" aria-describedby="temporary-password-help" (input)="passwordCopied.set(false)" /><button type="button" (click)="showTemporaryPassword.set(!showTemporaryPassword())" [attr.aria-pressed]="showTemporaryPassword()" [attr.aria-label]="showTemporaryPassword() ? 'Ocultar senha provisória' : 'Mostrar senha provisória'">{{ showTemporaryPassword() ? 'Ocultar' : 'Mostrar' }}</button></div>
+          <small id="temporary-password-help">Use de 12 a 64 caracteres. A pessoa deverá trocá-la no primeiro acesso.</small>
+          <div class="password-tools"><button class="text-button" type="button" (click)="generatePassword()" [disabled]="busy()">Gerar senha</button><button class="text-button" type="button" (click)="copyPassword()" [disabled]="busy()">{{ passwordCopied() ? 'Senha copiada' : 'Copiar senha' }}</button></div>
+        </div>
+        <p class="inline-note">Guarde a senha provisória para entregar à pessoa. Depois de salvar, ela não poderá ser consultada.</p>
+        @if (state.kind === 'reset' && target()?.status === 'BLOCKED') { <p class="dialog-description blocked-note">Esta conta continuará bloqueada. Redefinir a senha não a desbloqueia.</p> }
+      } @else if (state.kind === 'block') {
+        <p class="dialog-description">A pessoa perderá o acesso e precisará aguardar o desbloqueio. Os dados da conta serão preservados.</p>
+      } @else {
+        <p class="dialog-description">A pessoa poderá entrar novamente com a senha que já utiliza. Se houver uma senha provisória, a troca continuará obrigatória.</p>
+      }
+      <div class="dialog-actions">
+        <button id="dialog-cancel" class="secondary-button" type="button" (click)="closeDialog()" [disabled]="busy()">Cancelar</button>
+        <button class="primary-button" [class.danger-button]="state.kind === 'block'" type="submit" [disabled]="busy()">
+          {{ busy() ? 'Salvando…' : state.kind === 'create' ? 'Criar conta' : state.kind === 'reset' ? 'Redefinir senha' : state.kind === 'block' ? 'Bloquear conta' : 'Desbloquear conta' }}
+        </button>
+      </div>
+    </form>
+  }
+</dialog>

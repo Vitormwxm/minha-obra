@@ -128,6 +128,7 @@ def validate_env(fd):
     if not account or not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != account.pw_uid or stat.S_IMODE(info.st_mode) not in (0o600, 0o400):
         raise SystemExit('Configuração privada existente exige arquivo regular, dono correto e modo 600/400.')
     required = {'APP_DOMAIN', 'POSTGRES_PASSWORD', 'POSTGRES_ADMIN_PASSWORD', 'KAFKA_CLUSTER_ID'}
+    allowed = required | {'APP_TOTP_ENCRYPTION_KEY'}
     seen = set()
     with os.fdopen(os.dup(fd), 'r', encoding='utf-8') as stream:
         for line in stream:
@@ -135,12 +136,18 @@ def validate_env(fd):
             if not line or line.startswith('#'):
                 continue
             name, separator, value = line.partition('=')
-            if not separator or name not in required or name in seen or not value:
+            if not separator or name not in allowed or name in seen or not value:
                 raise SystemExit('Configuração privada existente tem nomes ausentes, duplicados ou inesperados.')
             if name == 'APP_DOMAIN' and value != domain:
                 raise SystemExit('Domínio da configuração privada existente difere do domínio solicitado.')
+            if name == 'APP_TOTP_ENCRYPTION_KEY':
+                try:
+                    if len(base64.b64decode(value.strip("\"'"), validate=True)) != 32:
+                        raise ValueError()
+                except ValueError:
+                    raise SystemExit('Chave de autenticação existente inválida; ela não foi alterada.') from None
             seen.add(name)
-    if seen != required:
+    if not required.issubset(seen):
         raise SystemExit('Configuração privada existente está incompleta.')
 
 def already_authorized(text):
@@ -237,7 +244,8 @@ else:
         while admin_password == password:
             admin_password = secrets.token_hex(32)
         cluster_id = base64.urlsafe_b64encode(uuid.uuid4().bytes).decode('ascii').rstrip('=')
-        stream.write(f'APP_DOMAIN={domain}\nPOSTGRES_PASSWORD={password}\nPOSTGRES_ADMIN_PASSWORD={admin_password}\nKAFKA_CLUSTER_ID={cluster_id}\n')
+        auth_key = base64.b64encode(secrets.token_bytes(32)).decode('ascii')
+        stream.write(f'APP_DOMAIN={domain}\nPOSTGRES_PASSWORD={password}\nPOSTGRES_ADMIN_PASSWORD={admin_password}\nKAFKA_CLUSTER_ID={cluster_id}\nAPP_TOTP_ENCRYPTION_KEY={auth_key}\n')
 finally:
     os.close(base_fd)
 PY

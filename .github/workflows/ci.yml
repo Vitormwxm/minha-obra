@@ -200,6 +200,7 @@ jobs:
           POSTGRES_PASSWORD: ci-only-not-a-production-password
           POSTGRES_ADMIN_PASSWORD: ci-only-admin-not-a-production-password
           KAFKA_CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+          APP_TOTP_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
           BACKEND_IMAGE: ghcr.io/vitormwxm/minha-obra-backend@sha256:0000000000000000000000000000000000000000000000000000000000000000
           FRONTEND_IMAGE: ghcr.io/vitormwxm/minha-obra-frontend@sha256:0000000000000000000000000000000000000000000000000000000000000000
         run: |
@@ -219,6 +220,7 @@ jobs:
           POSTGRES_PASSWORD: ci-only-not-a-production-password
           POSTGRES_ADMIN_PASSWORD: ci-only-admin-not-a-production-password
           KAFKA_CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+          APP_TOTP_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
           BACKEND_IMAGE: minhaobra-backend:ci
           FRONTEND_IMAGE: minhaobra-frontend:ci
         run: |
@@ -236,6 +238,11 @@ jobs:
             --resolve obra-ci.example.com:443:127.0.0.1 https://obra-ci.example.com/healthz
           curl --fail --silent --show-error --noproxy '*' --cacert /etc/letsencrypt/live/obra-ci.example.com/fullchain.pem \
             --resolve obra-ci.example.com:443:127.0.0.1 https://obra-ci.example.com/ >/dev/null
+          printf '%s\n' '127.0.0.1 obra-ci.example.com' | sudo tee -a /etc/hosts >/dev/null
+          python3 infra/ci/auth_smoke.py --domain obra-ci.example.com \
+            --ca /etc/letsencrypt/live/obra-ci.example.com/fullchain.pem \
+            --compose "$RUNNER_TEMP/compose-2.24.5/docker-compose-linux-x86_64" \
+            --file infra/compose.prod.yml
       - name: Encerrar somente o projeto de teste
         if: always()
         env: *smoke-env

@@ -1,6 +1,7 @@
 .vercel/
 node_modules/
 .env*
+.auth-key.sha256
 !**/.env.example
 .build-tools/
 .signing/
