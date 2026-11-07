@@ -127,7 +127,11 @@ jobs:
             android/app/build.gradle
             android/gradle/wrapper/gradle-wrapper.properties
       - name: SDK Android
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
+        with:
+          cmdline-tools-version: '12266719'
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          log-accepted-android-sdk-licenses: false
       - name: Lint e compilação sem assinatura privada
         working-directory: android
         run: ./gradlew --no-daemon lintDebug assembleDebug
