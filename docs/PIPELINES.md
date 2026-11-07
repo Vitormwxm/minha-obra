@@ -40,12 +40,20 @@ Criar ambiente GitHub `production`, restrito à main, e configurar:
 | Variable | VPS_PORT | 22022, conforme inventário atual |
 | Variable | PRODUCTION_URL | Origem HTTPS do domínio definitivo |
 
-Estado de preparação em 06/11/2026: ambiente `production` restrito à main;
+Estado de produção em 06/11/2026: ambiente `production` restrito à main;
 `VPS_PORT=22022`, `PRODUCTION_URL=https://focuslabapp.com` e secrets
-`VPS_HOST`, `VPS_USER` e `VPS_SSH_KEY` configurados. A chave é exclusiva da
-pipeline; sua parte privada não está no Git. Falta confirmar a chave pública do
-host pela sessão administrativa da VPS para configurar `VPS_KNOWN_HOSTS`,
-executar o bootstrap e testar uma nova conexão SSH. Nenhum deploy foi acionado.
+`VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` e `VPS_KNOWN_HOSTS` configurados.
+A chave é exclusiva da pipeline; sua parte privada não está no Git. A chave
+pública do host foi conferida pelo operador e uma nova conexão SSH validou o
+usuário, o acesso ao Docker e a configuração privada com modo 600.
+
+A [CI da main](https://github.com/Vitormwxm/minha-obra/actions/runs/42329017505)
+publicou as imagens e o [primeiro deploy](https://github.com/Vitormwxm/minha-obra/actions/runs/42329402075)
+concluiu para `4b32ca593d89831ccf4fe1184d5ae4cb921907f3`.
+O pull das duas imagens foi conferido na VPS sem credenciais de registry.
+Os quatro serviços ficaram saudáveis; HTTPS respondeu 200 e `/healthz` retornou
+`UP`. Esse estado confirma a publicação da base, sem implementar as futuras
+funcionalidades de contas/finanças ou comprovar capacidade sob carga.
 
 Não usar SSH sem verificação de host nem colar chaves no chat/Git. Os secrets do
 repositório FocusLab não são automaticamente compartilhados com este repositório.

@@ -90,10 +90,44 @@ As políticas efetivas do SSH são apenas diagnosticadas; o acesso só estará
 confirmado após uma conexão nova com a chave dedicada. O grupo Docker permite
 administrar o daemon, por isso essa chave deve ficar exclusiva da publicação.
 
-Após o bootstrap ainda faltam: validar SSH/host key, integrar a PR, publicar as
-imagens, habilitar pull dos pacotes GHCR e acionar o deploy manual. Conferir
-também o webroot e o hook de recarga do Certbot antes de encerrar a migração;
-a preservação dos certificados não comprova a renovação da nova aplicação.
+O operador executou o bootstrap; host key e acesso SSH foram confirmados.
+A PR #1 foi integrada e a release `4b32ca593d89831ccf4fe1184d5ae4cb921907f3`
+foi publicada pelo workflow manual. Nginx, backend, PostgreSQL e Kafka ficaram
+saudáveis, sem reinícios/OOM na observação inicial. Somente 80/443 estão
+publicadas pela nova aplicação; a role de banco `minhaobra` não é superusuária
+nem pode criar bancos ou roles.
+
+Observação inicial, sem carga: cerca de 1,1 GiB RAM disponíveis; containers
+consumiram aproximadamente 5 MiB (Nginx), 218 MiB (API), 40 MiB (PostgreSQL)
+e 206 MiB (Kafka). Restaram 17 GB em disco após o pull das imagens. Esses
+números variam e não substituem teste de capacidade.
+
+O diagnóstico de renovação encontrou o webroot antigo removido:
+`/var/www/apps/focuslab-principal/frontend/dist/frontend/browser`.
+O destino correto para o Nginx novo é `/var/www/certbot`; a correção exige
+renovação real pelo Certbot 1.21 e um deploy hook root que recarregue somente
+o frontend do projeto `minha-obra`. O timer existente está ativo/habilitado.
+O operador criou o hook root `/etc/letsencrypt/renewal-hooks/deploy/50-minha-obra-nginx`,
+modo 755. Seu conteúdo foi conferido por SHA256 e a validação/recarga do Nginx
+foi testada no container real. O hook seleciona somente o frontend desse projeto.
+
+Para o Certbot 1.21, testar o novo webroot e persistir por uma renovação real,
+como root. A última simulação omite o override para conferir a opção salva:
+
+```bash
+certbot renew --cert-name focuslabapp.com --webroot-path /var/www/certbot --dry-run --non-interactive --no-random-sleep-on-renew
+certbot renew --cert-name focuslabapp.com --webroot-path /var/www/certbot --force-renewal --non-interactive --no-random-sleep-on-renew
+certbot renew --cert-name focuslabapp.com --dry-run --non-interactive --no-random-sleep-on-renew
+```
+
+A renovação forçada é para gravar a alteração inicial; não usá-la como rotina
+de diagnóstico. Em execuções manuais sem TTY, a opção final evita a espera
+aleatória de até oito minutos por chamada. O timer de renovação normal pode
+manter seu atraso padrão. `--dry-run` não executa o deploy hook nessa versão;
+conferir também o certificado realmente servido por HTTPS após a renovação real.
+
+Referências: [alteração de configuração em versões antigas](https://eff-certbot.readthedocs.io/en/stable/using.html#modifying-the-renewal-configuration-of-existing-certificates)
+e [espera no Certbot 1.21](https://github.com/certbot/certbot/blob/v1.21.0/certbot/certbot/_internal/renewal.py#L391-L436).
 
 Orçamento inicial dos containers: backend 640 MiB, Kafka 640 MiB,
 PostgreSQL 256 MiB e Nginx 64 MiB. São tetos de teste, não consumo observado.
