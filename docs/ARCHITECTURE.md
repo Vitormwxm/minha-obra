@@ -1,8 +1,8 @@
 # Arquitetura da plataforma
 
-Status: base de infraestrutura e pipelines. Login, motor Java e controle
-financeiro aprovados ainda serão implementados. O simulador estático da raiz
-é legado preservado como referência de cálculo, não a nova aplicação.
+Contas, login, administração e pipelines compõem a etapa atual. O simulador
+estático da raiz continua como referência para o motor de cálculo e o controle
+financeiro da plataforma.
 
 ## Decisões
 
@@ -27,7 +27,7 @@ financeiro aprovados ainda serão implementados. O simulador estático da raiz
 - Idempotency keys para repetições da mesma operação e versões para impedir
   sobrescrita por edições concorrentes. São proteções complementares.
 - Cálculo financeiro centralizado em Java. A simulação anônima é permitida no
-  site e usa internet. APK exige conta confirmada e aprovada. Offline autenticado
+  site e usa internet. APK exige conta aprovada. Offline autenticado
   é evolução futura, não funcionalidade da base atual.
 - Um financiamento CAIXA de apartamento por usuário inicialmente, com vínculo
   conta → financiamentos que permite expansão sem misturar proprietários.
@@ -35,6 +35,9 @@ financeiro aprovados ainda serão implementados. O simulador estático da raiz
 ## Acesso e operação
 
 Administrador inicial único, segundo fator TOTP e códigos de recuperação.
+Cada pessoa solicita a conta com a própria senha e aguarda a aprovação.
+Uma senha provisória é usada na redefinição administrativa e precisa ser
+trocada no próximo acesso.
 Perfil administrativo gerencia contas, aprovações, bloqueios e exclusões; não
 consulta financeiro de outros usuários. O operador da VPS tem acesso técnico
 ao banco. Senhas serão hashes de verificação, sem senha original armazenada.
@@ -106,6 +109,6 @@ Referência: [KRaft](https://kafka.apache.org/44/operations/kraft/).
 CI obrigatória valida legado, backend real com PostgreSQL, Angular, Android e
 scripts. Imagens da aplicação são publicadas no GHCR por commit e identificadas
 por digest. Deploy de produção é manual, somente de commit da `main` aprovado
-pela CI, sem recompilar na VPS e sem remover volumes. Domínio, certificado,
-remetente de e-mail, credenciais FCM e acesso de deploy são configurados antes
-da publicação; não foram fornecidos nesta etapa.
+pela CI, sem recompilar na VPS e sem remover volumes. A publicação usa o
+domínio e o certificado da VPS. As credenciais FCM pertencem à etapa de
+notificações.

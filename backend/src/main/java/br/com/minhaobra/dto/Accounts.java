@@ -39,13 +39,16 @@ public final class Accounts {
         }
     }
 
-    public record CreateUser(@NotBlank @Size(min = 3, max = 40) String username,
+    public record Register(@NotBlank @Size(min = 3, max = 40) String username,
             @NotBlank @Size(min = 2, max = 120) String displayName,
-            @NotNull @Size(min = 12, max = 72) String temporaryPassword) {
+            @NotNull @Size(min = 12, max = 72) String password) {
         @Override
         public String toString() {
-            return "CreateUser[redacted]";
+            return "Register[redacted]";
         }
+    }
+
+    public record Registration(String status) {
     }
 
     public record Version(@NotNull @PositiveOrZero Long version) {

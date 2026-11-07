@@ -24,7 +24,8 @@ final class SessionValidationFilter extends OncePerRequestFilter {
             if(account.isEmpty() || clock.millis()-principal.authenticatedAt()>=8*60*60*1000L) {
                 var session=request.getSession(false);if(session!=null)session.invalidate();
                 SecurityContextHolder.clearContext();
-                if(!request.getRequestURI().startsWith("/api/") || request.getRequestURI().equals("/api/auth/csrf") || request.getRequestURI().equals("/api/auth/login")) {
+                if(!request.getRequestURI().startsWith("/api/") || request.getRequestURI().equals("/api/auth/csrf")
+                        || request.getRequestURI().equals("/api/auth/login") || request.getRequestURI().equals("/api/auth/register")) {
                     chain.doFilter(request,response);return;
                 }
                 SecurityResponses.error(response,401,"SESSION_EXPIRED","Sua sessão expirou. Entre novamente.");return;

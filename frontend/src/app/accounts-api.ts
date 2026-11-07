@@ -2,7 +2,7 @@ import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular
 import { inject, Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import {
-  Account, AccountCreation, AccountPage, ApiFailure, AuthSession, MfaConfirmation, MfaSetup,
+  Account, AccountPage, AccountRequest, AccountRequestResult, ApiFailure, AuthSession, MfaConfirmation, MfaSetup,
 } from './accounts.models';
 
 @Injectable({ providedIn: 'root' })
@@ -30,6 +30,10 @@ export class AccountsApi {
     const session = await this.post<AuthSession>('/auth/login', { username, password });
     await this.afterAuthentication();
     return session;
+  }
+
+  register(payload: AccountRequest, key: string): Promise<AccountRequestResult> {
+    return this.post<AccountRequestResult>('/auth/register', payload, key);
   }
 
   async changePassword(currentPassword: string, newPassword: string): Promise<AuthSession> {
@@ -68,8 +72,9 @@ export class AccountsApi {
     return firstValueFrom(this.http.get<AccountPage>('/api/admin/users', { params, withCredentials: true }));
   }
 
-  createAccount(payload: AccountCreation, key: string): Promise<Account> {
-    return this.post<Account>('/admin/users', payload, key);
+  approveAccount(account: Account, key: string): Promise<Account> {
+    return this.post<Account>('/admin/users/' + encodeURIComponent(account.id) + '/approve',
+      { version: account.version }, key);
   }
 
   setBlocked(account: Account, blocked: boolean, key: string): Promise<Account> {

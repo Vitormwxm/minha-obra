@@ -5,7 +5,6 @@ import br.com.minhaobra.service.AccountService;
 import br.com.minhaobra.service.SessionContextService;
 import jakarta.validation.Valid;
 import java.util.UUID;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,11 +25,10 @@ public class AdminUsersController {
         return accounts.users(sessions.principal(auth), page, size, search);
     }
 
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public Accounts.User create(Authentication auth, @RequestHeader("Idempotency-Key") UUID key,
-            @Valid @RequestBody Accounts.CreateUser body) {
-        return accounts.create(sessions.principal(auth), key, body);
+    @PostMapping("/{id}/approve")
+    public Accounts.User approve(Authentication auth, @PathVariable UUID id,
+            @RequestHeader("Idempotency-Key") UUID key, @Valid @RequestBody Accounts.Version body) {
+        return accounts.approve(sessions.principal(auth), id, key, body.version());
     }
 
     @PostMapping("/{id}/block")

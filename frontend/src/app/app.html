@@ -24,6 +24,49 @@
 
     @if (starting()) {
       <section class="loading-state" aria-live="polite" aria-busy="true"><span class="spinner" aria-hidden="true"></span><h1 tabindex="-1">Preparando seu acesso</h1><p>Só um instante.</p></section>
+    } @else if (!session() && accessPage() === 'register') {
+      <section class="centered-flow" aria-labelledby="registration-title">
+        <div class="flow-heading">
+          <span class="eyebrow">MINHA OBRA</span>
+          <h1 id="registration-title" tabindex="-1">Solicitar conta</h1>
+          <p>Escolha seu usuário e sua senha. Você poderá entrar assim que o administrador aprovar a solicitação.</p>
+        </div>
+        <div class="flow-card">
+          <form [formGroup]="registrationForm" (ngSubmit)="requestAccount()" [attr.aria-busy]="busy()">
+            <div class="field">
+              <label for="registration-name">Nome</label>
+              <input id="registration-name" formControlName="displayName" autocomplete="name" maxlength="120" [attr.aria-invalid]="registrationForm.controls.displayName.touched && registrationForm.controls.displayName.invalid" />
+            </div>
+            <div class="field">
+              <label for="registration-username">Usuário</label>
+              <input id="registration-username" formControlName="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="40" aria-describedby="registration-username-help" [attr.aria-invalid]="registrationForm.controls.username.touched && registrationForm.controls.username.invalid" />
+              <small id="registration-username-help">De 3 a 40 caracteres. Comece com letra ou número. Você pode usar pontos, hífens e sublinhados.</small>
+            </div>
+            <div class="field">
+              <label for="registration-password">Senha</label>
+              <input id="registration-password" formControlName="password" type="password" autocomplete="new-password" maxlength="72" aria-describedby="registration-password-help" [attr.aria-invalid]="registrationForm.controls.password.touched && registrationForm.controls.password.invalid" />
+              <small id="registration-password-help">Use de 12 a 64 caracteres.</small>
+            </div>
+            <div class="field">
+              <label for="registration-confirmation">Confirme a senha</label>
+              <input id="registration-confirmation" formControlName="confirmPassword" type="password" autocomplete="new-password" maxlength="72" [attr.aria-invalid]="registrationForm.controls.confirmPassword.touched && registrationForm.controls.confirmPassword.invalid" />
+            </div>
+            <button class="primary-button full-width" type="submit" [disabled]="busy()">{{ busy() ? 'Enviando…' : 'Enviar solicitação' }}</button>
+            <button class="text-button full-width secondary-action" type="button" (click)="showAccessPage('login')" [disabled]="busy()">Voltar para entrar</button>
+          </form>
+        </div>
+      </section>
+    } @else if (!session() && accessPage() === 'requested') {
+      <section class="centered-flow" aria-labelledby="requested-title">
+        <div class="flow-heading">
+          <span class="eyebrow">MINHA OBRA</span>
+          <h1 id="requested-title" tabindex="-1">Aguardando aprovação</h1>
+          <p>Sua solicitação foi recebida. Após a aprovação do administrador, entre com o usuário e a senha que você escolheu.</p>
+        </div>
+        <div class="flow-card">
+          <button class="secondary-button full-width" type="button" (click)="showAccessPage('login')" [disabled]="busy()">Voltar para entrar</button>
+        </div>
+      </section>
     } @else if (!session()) {
       <section class="login-layout" aria-labelledby="login-title">
         <div class="intro-copy">
@@ -54,13 +97,14 @@
               @if (!busy()) { <span aria-hidden="true">→</span> }
             </button>
           </form>
-          <div class="access-help"><strong>Precisa de acesso ou esqueceu a senha?</strong><p>Fale com o administrador para receber seus dados ou uma nova senha provisória.</p></div>
+          <button class="secondary-button full-width secondary-action" type="button" (click)="showAccessPage('register')" [disabled]="busy()">Solicitar conta</button>
+          <div class="access-help"><strong>Esqueceu a senha?</strong><p>Peça uma redefinição ao administrador.</p></div>
           @if (message()) { <button class="text-button retry" type="button" (click)="start()" [disabled]="busy()">Verificar conexão novamente</button> }
         </div>
       </section>
     } @else if (session()?.stage === 'CHANGE_PASSWORD' || changingPassword()) {
       <section class="centered-flow" aria-labelledby="password-title">
-        <div class="flow-heading"><span class="eyebrow">SEU ACESSO</span><h1 id="password-title" tabindex="-1">{{ changingPassword() ? 'Uma nova senha para sua conta.' : 'Antes de começar, escolha sua senha.' }}</h1><p>{{ changingPassword() ? 'Confirme a senha atual e defina uma nova.' : 'A senha provisória abriu a porta. Agora deixe o acesso só com você.' }}</p></div>
+        <div class="flow-heading"><span class="eyebrow">SEU ACESSO</span><h1 id="password-title" tabindex="-1">Uma nova senha para sua conta.</h1><p>{{ changingPassword() ? 'Confirme a senha atual e defina uma nova.' : 'Troque a senha provisória para acessar sua conta.' }}</p></div>
         <div class="flow-card">
           <form [formGroup]="passwordForm" (ngSubmit)="changePassword()" [attr.aria-busy]="busy()">
             <div class="field"><label for="current-password">{{ changingPassword() ? 'Senha atual' : 'Senha provisória' }}</label><input id="current-password" type="password" formControlName="currentPassword" autocomplete="current-password" maxlength="72" /></div>
@@ -126,7 +170,7 @@
           <section class="overview" aria-labelledby="overview-title">
             <div class="overview-heading"><span class="eyebrow">{{ current.user.role === 'ADMIN' ? 'PAINEL ADMINISTRATIVO' : 'MINHA CONTA' }}</span><h1 id="overview-title" tabindex="-1">Olá, {{ current.user.displayName }}.</h1><p>Seu acesso está pronto. Que bom construir o próximo passo com você.</p></div>
             @if (current.user.role === 'ADMIN') {
-              <article class="feature-card admin-feature"><span class="feature-number" aria-hidden="true">01</span><div><span class="eyebrow">ADMINISTRAÇÃO</span><h2>Organize os acessos à plataforma.</h2><p>Crie contas, entregue senhas provisórias e gerencie bloqueios em um só lugar.</p></div><button class="primary-button" type="button" (click)="page.set('accounts')">Gerenciar pessoas <span aria-hidden="true">→</span></button></article>
+              <article class="feature-card admin-feature"><span class="feature-number" aria-hidden="true">01</span><div><span class="eyebrow">ADMINISTRAÇÃO</span><h2>Organize os acessos à plataforma.</h2><p>Aprove solicitações, redefina senhas e gerencie bloqueios em um só lugar.</p></div><button class="primary-button" type="button" (click)="page.set('accounts')">Gerenciar pessoas <span aria-hidden="true">→</span></button></article>
             }
             <article class="feature-card coming-next"><span class="feature-number" aria-hidden="true">↗</span><div><span class="eyebrow">O PRÓXIMO PASSO</span><h2>Sua obra, com mais clareza.</h2><p>Os recursos para acompanhar financiamento, pagamentos e projeções ainda estão em preparação.</p><span class="status-tag neutral">Em preparação</span></div></article>
             <div class="account-settings"><div><h2>Cuide do seu acesso</h2><p>Você entrou como <strong>{{ current.user.username }}</strong>.</p></div><button class="secondary-button" type="button" (click)="openPasswordChange()" [disabled]="adminBusy()">Alterar minha senha</button></div>

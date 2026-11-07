@@ -16,6 +16,10 @@ public record Account(UUID id, String username, String displayName, String passw
         return "ACTIVE".equals(status);
     }
 
+    public boolean isPendingApproval() {
+        return "PENDING_APPROVAL".equals(status);
+    }
+
     @Override
     public String toString() {
         return "Account[id=" + id + ",role=" + role + ",status=" + status + "]";

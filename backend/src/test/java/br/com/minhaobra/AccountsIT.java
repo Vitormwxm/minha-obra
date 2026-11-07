@@ -1,6 +1,6 @@
 package br.com.minhaobra;
 
-import br.com.minhaobra.domain.SessionPrincipal;
+import br.com.minhaobra.dto.Accounts;
 import br.com.minhaobra.repository.AccountRepository;
 import br.com.minhaobra.security.SecretCrypto;
 import br.com.minhaobra.security.Totp;
@@ -53,6 +53,7 @@ class AccountsIT {
         p.add("app.auth.encryption-key",()->"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
         p.add("app.events.enabled",()->"false");
         p.add("app.auth.login-attempts-per-minute",()->"10000");p.add("app.auth.ip-attempts-per-minute",()->"10000");p.add("app.auth.mfa-attempts-per-minute",()->"10000");
+        p.add("app.auth.registration-attempts-per-minute", () -> "10000");
     }
     @BeforeEach void clean() {jdbc.execute("TRUNCATE app_account,account_recovery_code,account_idempotency,account_outbox,account_audit,spring_session_attributes,spring_session CASCADE");}
     @AfterAll static void drop() throws Exception {
@@ -61,10 +62,13 @@ class AccountsIT {
         }
     }
 
-    @Test void csrfIsRequiredForLoginAndThereIsNoPublicRegistration() throws Exception {
+    @Test void csrfIsRequiredForLoginAndRegistrationAndInvalidCredentialsStayGeneric() throws Exception {
         Browser browser=new Browser();browser.csrf();
         assertEquals(403,browser.post("/api/auth/login",Map.of("username","someone","password",TEMP),false,null).statusCode());
-        assertEquals(401,browser.post("/api/auth/register",Map.of(),true,null).statusCode());
+        var request = Map.of("username", "someone", "displayName", "Pessoa de teste", "password", NORMAL);
+        assertEquals(403, browser.post("/api/auth/register", request, false, UUID.randomUUID()).statusCode());
+        assertEquals(400, browser.post("/api/auth/register", request, true, null).statusCode());
+        assertTrue(accounts.byUsername("someone").isEmpty());
         var missing=browser.post("/api/auth/login",Map.of("username","missing","password",TEMP));
         insert("existing","USER",true,TEMP);
         var wrong=browser.post("/api/auth/login",Map.of("username","existing","password","Wrong-Password-2026!"));
@@ -124,30 +128,100 @@ class AccountsIT {
         assertEquals(401,legitimate.get("/api/admin/users").statusCode());
     }
 
-    @Test void accountCreationIsIdempotentAndNeverStoresPlaintextInEventsOrResults() throws Exception {
-        Browser admin=admin();UUID key=UUID.randomUUID();
-        Map<String,Object> body=Map.of("username","new_person","displayName","Pessoa Nova","temporaryPassword",TEMP);
-        var created=admin.post("/api/admin/users",body,true,key);assertEquals(201,created.statusCode());
-        var repeated=admin.post("/api/admin/users",body,true,key);assertEquals(created.body(),repeated.body());
-        var modified=admin.post("/api/admin/users",Map.of("username","new_person","displayName","Pessoa Nova","temporaryPassword",NORMAL),true,key);
-        assertEquals(409,modified.statusCode());assertEquals(2,jdbc.queryForObject("SELECT count(*) FROM app_account",Integer.class));
-        assertEquals(1,jdbc.queryForObject("SELECT count(*) FROM account_audit WHERE event_type='ACCOUNT_CREATED'",Integer.class));
-        assertFalse(created.body().contains(TEMP));assertFalse(created.body().contains("passwordHash"));
+    @Test void registrationIsIdempotentAndNeverStoresPlaintextInEventsOrResults() throws Exception {
+        Browser applicant = new Browser();
+        UUID key = UUID.randomUUID();
+        var body = Map.of("username", "New_Person", "displayName", "Pessoa Nova", "password", NORMAL,
+                "role", "ADMIN", "status", "ACTIVE", "mustChangePassword", true);
+        HttpResponse<String> created;
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            var first = executor.submit(() -> applicant.post("/api/auth/register", body, true, key));
+            var second = executor.submit(() -> new Browser().post("/api/auth/register", body, true, key));
+            created = first.get(15, TimeUnit.SECONDS);
+            var repeated = second.get(15, TimeUnit.SECONDS);
+            assertEquals(201, created.statusCode());
+            assertEquals(201, repeated.statusCode());
+            assertEquals(created.body(), repeated.body());
+        }
+        assertEquals(Map.of("status", "PENDING_APPROVAL"), JsonPath.read(created.body(), "$"));
+        assertEquals(401, applicant.get("/api/auth/me").statusCode());
+        assertTrue(applicant.cookies.getCookieStore().getCookies().stream().noneMatch(c -> c.getName().equals("MINHAOBRA_SESSION")));
+        var modifiedPassword = Map.of("username", "new_person", "displayName", "Pessoa Nova", "password", TEMP);
+        var modifiedName = Map.of("username", "other_person", "displayName", "Pessoa Nova", "password", NORMAL);
+        var passwordConflict = applicant.post("/api/auth/register", modifiedPassword, true, key);
+        assertEquals(409, passwordConflict.statusCode());
+        assertEquals("IDEMPOTENCY_CONFLICT", JsonPath.read(passwordConflict.body(), "$.code"));
+        var nameConflict = applicant.post("/api/auth/register", modifiedName, true, key);
+        assertEquals(409, nameConflict.statusCode());
+        assertEquals("IDEMPOTENCY_CONFLICT", JsonPath.read(nameConflict.body(), "$.code"));
+        assertEquals(409, applicant.post("/api/auth/register", modifiedPassword, true, UUID.randomUUID()).statusCode());
+        var account = accounts.byUsername("new_person").orElseThrow();
+        assertEquals("USER", account.role());
+        assertTrue(account.isPendingApproval());
+        assertFalse(account.mustChangePassword());
+        assertTrue(passwords.matches(NORMAL, account.passwordHash()));
+        assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM app_account", Integer.class));
+        assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM account_audit WHERE event_type='ACCOUNT_REQUESTED'", Integer.class));
         for(String value:jdbc.queryForList("SELECT payload FROM account_outbox UNION ALL SELECT response_json FROM account_idempotency",String.class)) {
             assertFalse(value.contains(TEMP));assertFalse(value.contains(NORMAL));assertFalse(value.contains("password_hash"));
         }
     }
 
-    @Test void anOutboxFailureRollsBackAccountAuditAndIdempotencyTogether() throws Exception {
-        admin();var owner=accounts.byUsername("owner").orElseThrow();
-        var principal=new SessionPrincipal(owner.id(),owner.authVersion(),true,System.currentTimeMillis());
+    @Test void onlyAdministratorApprovalUnlocksTheApplicantsChosenPassword() throws Exception {
+        Browser applicant = new Browser();
+        var body = Map.of("username", "requested", "displayName", "Pessoa Solicitante", "password", NORMAL);
+        assertEquals(201, applicant.post("/api/auth/register", body, true, UUID.randomUUID()).statusCode());
+        var account = accounts.byUsername("requested").orElseThrow();
+        UUID target = account.id();
+        String path = "/api/admin/users/" + target;
+        var version = Map.of("version", account.version());
+        var pendingLogin = applicant.login("requested", NORMAL);
+        assertEquals(403, pendingLogin.statusCode());
+        assertEquals("ACCOUNT_PENDING_APPROVAL", JsonPath.read(pendingLogin.body(), "$.code"));
+        assertEquals(401, applicant.get("/api/auth/me").statusCode());
+        var wrong = applicant.login("requested", TEMP);
+        assertEquals(401, wrong.statusCode());
+        assertEquals(applicant.login("unknown", TEMP).body(), wrong.body());
+        assertEquals(401, applicant.post(path + "/approve", version, true, UUID.randomUUID()).statusCode());
+
+        insert("other", "USER", false, NORMAL);
+        Browser ordinary = new Browser();
+        assertStage(ordinary.login("other", NORMAL), "AUTHENTICATED");
+        assertEquals(403, ordinary.post(path + "/approve", version, true, UUID.randomUUID()).statusCode());
+        Browser administrator = admin();
+        var page = administrator.get("/api/admin/users");
+        assertEquals(200, page.statusCode());
+        assertEquals("requested", JsonPath.read(page.body(), "$.items[0].username"));
+        assertEquals("PENDING_APPROVAL", JsonPath.read(page.body(), "$.items[0].status"));
+        assertEquals("requested", JsonPath.read(administrator.get("/api/admin/users?search=solicitante").body(), "$.items[0].username"));
+        for (String action : List.of("/block", "/unblock")) {
+            assertEquals(409, administrator.post(path + action, version, true, UUID.randomUUID()).statusCode());
+        }
+        assertEquals(409, administrator.post(path + "/temporary-password",
+                Map.of("version", account.version(), "temporaryPassword", TEMP), true, UUID.randomUUID()).statusCode());
+        assertTrue(accounts.byId(target).orElseThrow().isPendingApproval());
+
+        assertEquals(409, administrator.post(path + "/approve", Map.of("version", account.version() + 1),
+                true, UUID.randomUUID()).statusCode());
+        UUID approvalKey = UUID.randomUUID();
+        var approved = administrator.post(path + "/approve", version, true, approvalKey);
+        assertEquals(200, approved.statusCode());
+        assertEquals("ACTIVE", JsonPath.read(approved.body(), "$.status"));
+        assertEquals(Boolean.FALSE, JsonPath.read(approved.body(), "$.mustChangePassword"));
+        assertEquals(approved.body(), administrator.post(path + "/approve", version, true, approvalKey).body());
+        assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM account_audit WHERE event_type='ACCOUNT_APPROVED'", Integer.class));
+        assertStage(applicant.login("requested", NORMAL), "AUTHENTICATED");
+        assertEquals(200, applicant.get("/api/account").statusCode());
+    }
+
+    @Test void anOutboxFailureRollsBackAccountAuditAndIdempotencyTogether() {
         long before=jdbc.queryForObject("SELECT count(*) FROM account_audit",Long.class);
         UUID key=UUID.randomUUID();
         jdbc.execute("CREATE FUNCTION reject_account_outbox() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Intentional test failure'; END $$");
         jdbc.execute("CREATE TRIGGER reject_account_outbox BEFORE INSERT ON account_outbox FOR EACH ROW EXECUTE FUNCTION reject_account_outbox()");
         try {
-            assertThrows(org.springframework.dao.DataAccessException.class,()->accountService.create(principal,key,
-                new br.com.minhaobra.dto.Accounts.CreateUser("rollback_person","Pessoa de teste",TEMP)));
+            assertThrows(org.springframework.dao.DataAccessException.class, () -> accountService.register(key,
+                    new Accounts.Register("rollback_person", "Pessoa de teste", NORMAL)));
             assertTrue(accounts.byUsername("rollback_person").isEmpty());
             assertEquals(before,jdbc.queryForObject("SELECT count(*) FROM account_audit",Long.class));
             assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM account_idempotency WHERE request_key=?",Integer.class,key));
@@ -217,10 +291,13 @@ class AccountsIT {
         assertEquals(1,accounts.adminCount());assertTrue(passwords.matches(TEMP,accounts.byUsername("owner").orElseThrow().passwordHash()));
     }
 
-    @Test void adminCannotBlockOrResetItselfAndUsersCannotCreateAccounts() throws Exception {
+    @Test void adminCannotBlockOrResetItselfAndLegacyCreationIsUnavailable() throws Exception {
         Browser admin=admin();UUID id=accounts.byUsername("owner").orElseThrow().id();
         assertEquals(403,admin.post("/api/admin/users/"+id+"/block",Map.of("version",0),true,UUID.randomUUID()).statusCode());
         assertEquals(403,admin.post("/api/admin/users/"+id+"/temporary-password",Map.of("version",0,"temporaryPassword",TEMP),true,UUID.randomUUID()).statusCode());
+        var removed = admin.post("/api/admin/users", Map.of("username", "legacy_person", "displayName", "Pessoa antiga", "temporaryPassword", TEMP), true, UUID.randomUUID());
+        assertTrue(removed.statusCode() >= 400);
+        assertTrue(accounts.byUsername("legacy_person").isEmpty());
         insert("person","USER",false,NORMAL);Browser user=new Browser();user.login("person",NORMAL);
         assertEquals(403,user.post("/api/admin/users",Map.of("username","forbidden","displayName","Pessoa","temporaryPassword",TEMP),true,UUID.randomUUID()).statusCode());
     }
