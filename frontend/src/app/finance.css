@@ -45,6 +45,9 @@
 .delete-confirmation p { font-size: 12px; }
 .danger-button { background: #8e4238; border-color: #8e4238; }
 .danger-button:hover:not(:disabled) { background: #77362e; }
+.manual-tag { color: #534286; background: #efeafa; }
+.tr-fields { margin-top: 12px; }
+.projection-total { flex: 0 1 220px; margin: 0; }
 
 @media (max-width: 760px) {
   .ledger thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }

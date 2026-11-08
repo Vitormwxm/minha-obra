@@ -5,6 +5,7 @@ import br.com.minhaobra.domain.PaymentMonth;
 import br.com.minhaobra.domain.PaymentMonth.Kind;
 import br.com.minhaobra.domain.PaymentMonth.Payment;
 import br.com.minhaobra.domain.PaymentMonth.Status;
+import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
@@ -20,6 +21,14 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class FinanceRepository {
+    private static final String SELECT_MONTH = """
+            SELECT m.*, tr.rate_percent AS official_tr
+            FROM finance_month m
+            LEFT JOIN official_tr_rate tr
+              ON tr.period_start = m.tr_period_start AND tr.period_end = m.tr_period_end
+            WHERE m.financing_id = ?
+            """;
+
     private final JdbcTemplate jdbc;
 
     public FinanceRepository(JdbcTemplate jdbc) {
@@ -56,11 +65,24 @@ public class FinanceRepository {
     }
 
     public List<PaymentMonth> months(UUID financing) {
-        return jdbc.query("""
-                SELECT competence, version, caixa_due_date, builder_due_date, caixa_status, builder_status,
-                       released_cents, insurance_cents, fees_cents
-                FROM finance_month WHERE financing_id = ? ORDER BY competence
-                """, this::mapMonth, financing);
+        return jdbc.query(SELECT_MONTH + " ORDER BY m.competence", this::mapMonth, financing);
+    }
+
+    public Optional<PaymentMonth> month(UUID financing, YearMonth month) {
+        return jdbc.query(SELECT_MONTH + " AND m.competence = ?", this::mapMonth,
+                financing, month.atDay(1)).stream().findFirst();
+    }
+
+    public Optional<BigDecimal> officialTr(LocalDate start, LocalDate end) {
+        return jdbc.query("SELECT rate_percent FROM official_tr_rate WHERE period_start = ? AND period_end = ?",
+                (r, n) -> r.getBigDecimal("rate_percent"), start, end).stream().findFirst();
+    }
+
+    public void cacheOfficialTr(LocalDate start, LocalDate end, BigDecimal rate) {
+        jdbc.update("""
+                INSERT INTO official_tr_rate (period_start, period_end, rate_percent) VALUES (?, ?, ?)
+                ON CONFLICT (period_start, period_end) DO UPDATE SET rate_percent = EXCLUDED.rate_percent
+                """, start, end, rate);
     }
 
     public Optional<Long> monthVersion(UUID financing, YearMonth month) {
@@ -100,17 +122,19 @@ public class FinanceRepository {
         LocalDate competence = month.month().atDay(1);
         long version = jdbc.queryForObject("""
                 INSERT INTO finance_month (financing_id, competence, caixa_due_date, builder_due_date,
-                    caixa_status, builder_status, released_cents, insurance_cents, fees_cents)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    caixa_status, builder_status, released_cents, insurance_cents, fees_cents,
+                    tr_period_start, tr_period_end, manual_tr_percent)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (financing_id, competence) DO UPDATE SET version = EXCLUDED.version,
                     caixa_due_date = EXCLUDED.caixa_due_date, builder_due_date = EXCLUDED.builder_due_date,
                     caixa_status = EXCLUDED.caixa_status, builder_status = EXCLUDED.builder_status,
                     released_cents = EXCLUDED.released_cents, insurance_cents = EXCLUDED.insurance_cents,
-                    fees_cents = EXCLUDED.fees_cents
+                    fees_cents = EXCLUDED.fees_cents, tr_period_start = EXCLUDED.tr_period_start,
+                    tr_period_end = EXCLUDED.tr_period_end, manual_tr_percent = EXCLUDED.manual_tr_percent
                 RETURNING version
                 """, Long.class, financing, competence, month.caixaDueDate(), month.builderDueDate(),
                 month.caixaStatus().name(), month.builderStatus().name(), month.releasedCents(),
-                month.insuranceCents(), month.feesCents());
+                month.insuranceCents(), month.feesCents(), month.trPeriodStart(), month.trPeriodEnd(), month.manualTr());
         jdbc.update("DELETE FROM finance_payment WHERE financing_id = ? AND competence = ?", financing, competence);
 
         List<Object[]> values = new ArrayList<>(payments.size());
@@ -135,6 +159,8 @@ public class FinanceRepository {
                 row.getObject("caixa_due_date", LocalDate.class), row.getObject("builder_due_date", LocalDate.class),
                 Status.valueOf(row.getString("caixa_status")), Status.valueOf(row.getString("builder_status")),
                 row.getObject("released_cents", Long.class), row.getObject("insurance_cents", Long.class),
-                row.getObject("fees_cents", Long.class));
+                row.getObject("fees_cents", Long.class),
+                row.getObject("tr_period_start", LocalDate.class), row.getObject("tr_period_end", LocalDate.class),
+                row.getBigDecimal("manual_tr_percent"), row.getBigDecimal("official_tr"));
     }
 }

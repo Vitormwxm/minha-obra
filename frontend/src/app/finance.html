@@ -10,6 +10,10 @@
         <h1 id="finance-title" tabindex="-1">{{ editingMonth() ? 'Detalhes do lançamento' : 'Novo lançamento mensal' }}</h1>
         <p>Registre cada pagamento no mês de vencimento, mesmo que tenha pago em outra data.</p>
       }
+      @case ('projection') {
+        <h1 id="finance-title" tabindex="-1">Simular evolução de obra</h1>
+        <p>Estime quanto ainda pode pagar à CAIXA, do mês atual até a entrega prevista.</p>
+      }
       @default {
         <h1 id="finance-title" tabindex="-1">Minha obra</h1>
         <p>Acompanhe o financiamento do seu apartamento e os pagamentos mês a mês.</p>
@@ -34,7 +38,10 @@
         <article class="finance-panel" aria-labelledby="financing-summary">
           <div class="section-heading">
             <div><span class="eyebrow">FINANCIAMENTO HABITACIONAL</span><h2 id="financing-summary">Apartamento CAIXA</h2></div>
-            <button class="secondary-button" type="button" (click)="openFinancing()" [disabled]="busy()">Editar financiamento</button>
+            <div class="finance-actions">
+              <button class="secondary-button" type="button" (click)="openFinancing()" [disabled]="busy()">Editar financiamento</button>
+              <button class="secondary-button" type="button" (click)="openProjection()" [disabled]="busy()">Simular evolução de obra</button>
+            </div>
           </div>
           <dl class="financing-facts">
             <div><dt>Valor do financiamento</dt><dd>{{ amount(financing.financedCents) }}</dd></div>
@@ -66,7 +73,7 @@
             </div>
           }
           @if (data.months.length) {
-            <p id="ledger-help" class="muted">O traço indica valor desconhecido. Os acumulados somam os pagamentos registrados. A variação compara meses consecutivos concluídos.</p>
+            <p id="ledger-help" class="muted">O traço indica valor desconhecido. A coluna de TR fica vazia quando a taxa está indisponível. Os acumulados somam os pagamentos registrados. A variação compara meses consecutivos concluídos.</p>
             <div class="ledger-scroll" role="region" aria-label="Planilha mensal de pagamentos" tabindex="0">
               <table class="ledger" role="table" aria-describedby="ledger-help">
                 <thead role="rowgroup">
@@ -79,6 +86,7 @@
                     <th scope="col" role="columnheader">Construtora acumulado</th>
                     <th scope="col" role="columnheader">Total acumulado</th>
                     <th scope="col" role="columnheader">Variação mensal</th>
+                    <th scope="col" role="columnheader">TR</th>
                     <th scope="col" role="columnheader">Ações</th>
                   </tr>
                 </thead>
@@ -93,6 +101,13 @@
                       <td role="cell"><span class="mobile-label" aria-hidden="true">Construtora acumulado</span>{{ amount(row.builderAccumulatedCents) }}</td>
                       <td role="cell"><span class="mobile-label" aria-hidden="true">Total acumulado</span>{{ amount(row.accumulatedPaidCents) }}</td>
                       <td role="cell"><span class="mobile-label" aria-hidden="true">Variação mensal</span>{{ amount(row.monthlyVariationCents) }}</td>
+                      <td role="cell" class="ledger-payer" [attr.aria-label]="row.tr ? null : 'TR indisponível'">
+                        <span class="mobile-label" aria-hidden="true">TR</span>
+                        @if (row.tr; as tr) {
+                          <strong>{{ percent(tr.rate) }}</strong>
+                          <span class="status-tag" [class.active]="tr.origin === 'OFFICIAL'" [class.pending]="tr.origin === 'ESTIMATED'" [class.manual-tag]="tr.origin === 'MANUAL'">{{ trOrigins[tr.origin] }}</span>
+                        }
+                      </td>
                       <td role="cell" class="ledger-details"><button class="text-button" type="button" (click)="openMonth(row)" [disabled]="busy()" [attr.aria-label]="'Abrir detalhes de ' + monthLabel(row.month)">Detalhes <span aria-hidden="true">→</span></button></td>
                     </tr>
                   }
@@ -128,7 +143,7 @@
         <button class="primary-button" type="submit" [disabled]="busy()">{{ busy() ? 'Salvando…' : 'Salvar financiamento' }}</button>
       </div>
     </form>
-  } @else if (snapshot()?.financing; as financing) {
+  } @else if (view() === 'month' && snapshot()?.financing; as financing) {
     <form class="finance-panel finance-form" [formGroup]="monthForm" (ngSubmit)="saveMonth()" (input)="clearInputProblem()">
       <fieldset class="form-fields" [disabled]="busy() || confirmingDelete()">
         <legend class="form-legend">Mês e vencimentos</legend>
@@ -153,6 +168,39 @@
           </fieldset>
         </div>
         <p class="muted form-help">Use “Sem pagamento” quando souber que não houve pagamento para aquela parte no mês. Para valores ainda em aberto, use “Em aberto”.</p>
+      </fieldset>
+
+      <fieldset class="form-fields" [disabled]="busy() || confirmingDelete()">
+        <legend class="form-legend">TR do mês</legend>
+        @if (editingMonth()?.tr; as tr) {
+          <p class="muted form-help">TR do lançamento salvo <strong>{{ percent(tr.rate) }}</strong> · {{ trOrigins[tr.origin] }}.</p>
+        }
+        <p id="tr-period-help" class="muted form-help">Informe as duas datas do período de correção que constam no contrato ou no extrato. A consulta usa esse período exato.</p>
+        <div class="form-grid three-fields tr-fields">
+          <div class="field">
+            <label for="tr-period-start">Início do período <span>(opcional)</span></label>
+            <input id="tr-period-start" type="date" formControlName="trPeriodStart" [min]="minTrDate" [max]="today" placeholder="AAAA-MM-DD" aria-describedby="tr-period-help" (input)="officialLookup.set(null)" [attr.aria-invalid]="invalidField() === 'tr-period-start'" />
+          </div>
+          <div class="field">
+            <label for="tr-period-end">Fim do período <span>(opcional)</span></label>
+            <input id="tr-period-end" type="date" formControlName="trPeriodEnd" [min]="minTrDate" [max]="today" placeholder="AAAA-MM-DD" aria-describedby="tr-period-help" (input)="officialLookup.set(null)" [attr.aria-invalid]="invalidField() === 'tr-period-end'" />
+          </div>
+          <div class="field">
+            <label for="manual-tr">TR manual (%) <span>(opcional)</span></label>
+            <input id="manual-tr" formControlName="manualTr" inputmode="decimal" maxlength="10" placeholder="Ex.: 0,15" aria-describedby="manual-tr-help" [attr.aria-invalid]="invalidField() === 'manual-tr'" />
+          </div>
+        </div>
+        <div class="finance-actions tr-fields">
+          <button class="secondary-button" type="button" (click)="lookupOfficialTr()">{{ consultingTr() ? 'Consultando…' : 'Consultar TR oficial' }}</button>
+          @if (officialLookup(); as lookup) {
+            <p class="muted form-help" role="status">
+              @if (lookup.rate !== null) { TR oficial de <strong>{{ percent(lookup.rate) }}</strong> encontrada para esse período. }
+              @else { TR oficial indisponível para esse período. }
+            </p>
+          }
+        </div>
+        <p id="manual-tr-help" class="muted form-help">Ao salvar, a TR manual tem prioridade. Apague o valor manual e salve para voltar à TR oficial disponível para o período ou à estimativa, quando os dados forem suficientes.</p>
+        <p class="muted form-help">A estimativa precisa da CAIXA quitada, saldo liberado, seguro e taxas. Para pagamentos após o vencimento ou sem vencimento informado, preencha os juros e a multa por atraso, inclusive zero quando souber que não foram cobrados.</p>
       </fieldset>
 
       <fieldset class="form-fields" [disabled]="busy() || confirmingDelete()">
@@ -202,9 +250,95 @@
         <div class="finance-actions form-actions">
           @if (editingMonth()) { <button id="delete-month" class="text-button delete-button" type="button" (click)="setDeleteConfirmation(true)" [disabled]="busy()">Excluir lançamento</button> }
           <button class="secondary-button" type="button" (click)="backToSummary()" [disabled]="busy()">Voltar à planilha</button>
-          <button class="primary-button" type="submit" [disabled]="busy()">{{ busy() ? 'Salvando…' : 'Salvar lançamento' }}</button>
+          <button class="primary-button" type="submit" [disabled]="busy()">{{ busy() && !consultingTr() ? 'Salvando…' : 'Salvar lançamento' }}</button>
         </div>
       }
     </form>
+  } @else if (view() === 'projection' && snapshot()?.financing; as financing) {
+    <form class="finance-panel" [formGroup]="projectionForm" (ngSubmit)="simulate()" (input)="clearInputProblem(); projection.set(null)">
+      <dl class="financing-facts">
+        <div><dt>Saldo atual liberado</dt><dd>{{ amount(financing.releasedCents) }}</dd></div>
+        <div><dt>Valor final do financiamento</dt><dd>{{ amount(financing.financedCents) }}</dd></div>
+        <div><dt>Juros nominais anuais</dt><dd>{{ percent(financing.annualNominalRate) }}</dd></div>
+        <div><dt>Previsão de entrega</dt><dd>{{ dateLabel(financing.expectedDeliveryDate) }}</dd></div>
+      </dl>
+      <fieldset class="form-fields" [disabled]="busy()">
+        <legend class="form-legend">Hipóteses mensais</legend>
+        <p id="projection-help" class="muted form-help">Preencha as estimativas que conhece. Campo em branco mantém o valor desconhecido. Informe zero quando essa for a sua hipótese.</p>
+        <div class="form-grid three-fields tr-fields">
+          <div class="field"><label for="projection-tr">TR projetada (% ao mês)</label><input id="projection-tr" formControlName="monthlyTr" inputmode="decimal" maxlength="10" placeholder="Ex.: 0,15" aria-describedby="projection-help" [attr.aria-invalid]="invalidField() === 'projection-tr'" /></div>
+          <div class="field"><label for="projection-insurance">Seguro mensal</label><input id="projection-insurance" formControlName="insurance" inputmode="decimal" maxlength="22" placeholder="R$ 0,00" aria-describedby="projection-help" [attr.aria-invalid]="invalidField() === 'projection-insurance'" /></div>
+          <div class="field"><label for="projection-fees">Taxas mensais</label><input id="projection-fees" formControlName="fees" inputmode="decimal" maxlength="22" placeholder="R$ 0,00" aria-describedby="projection-help" [attr.aria-invalid]="invalidField() === 'projection-fees'" /></div>
+        </div>
+        @if (recentTr(); as recent) {
+          <p class="muted form-help">Última TR no seu histórico: <strong>{{ percent(recent.tr.rate) }}</strong> · {{ trOrigins[recent.tr.origin] }} · {{ monthLabel(recent.month) }}.</p>
+          <button class="text-button" type="button" (click)="useHistoricalTr(recent.tr.rate)">Usar como TR projetada</button>
+        }
+      </fieldset>
+      <div class="finance-actions form-actions">
+        <button class="secondary-button" type="button" (click)="backToSummary()" [disabled]="busy()">Voltar à minha obra</button>
+        <button class="primary-button" type="submit" [disabled]="busy()">{{ busy() ? 'Calculando…' : 'Calcular projeção' }}</button>
+      </div>
+    </form>
+
+    @if (projection(); as result) {
+      <section class="finance-panel" aria-labelledby="projection-results">
+        <div class="section-heading">
+          <div><span class="eyebrow">SIMULAÇÃO</span><h2 id="projection-results" tabindex="-1">Projeção até a entrega</h2></div>
+          <dl class="financing-facts projection-total">
+            <div>
+              <dt>Total restante estimado</dt><dd>{{ amount(result.totalCents) }}</dd>
+              @if (result.totalCents === null) { <dt>Subtotal mínimo estimado</dt><dd>{{ amount(result.knownSubtotalCents) }}</dd> }
+            </div>
+          </dl>
+        </div>
+        @if (result.rows.length) {
+          <p id="projection-ledger-help" class="muted">A simulação distribui a liberação restante entre os meses até atingir o valor final do financiamento. A última liberação ajusta os centavos. A TR e os juros usam o saldo do início do mês. Seguro, taxas, TR e juros são estimados antes de descontar os pagamentos à CAIXA. O traço indica um valor indisponível.</p>
+          <div class="ledger-scroll" role="region" aria-label="Projeção mensal de evolução de obra" tabindex="0">
+            <table class="ledger" role="table" aria-describedby="projection-ledger-help">
+              <thead role="rowgroup">
+                <tr role="row">
+                  <th scope="col" role="columnheader">Mês</th>
+                  <th scope="col" role="columnheader">Liberação no mês</th>
+                  <th scope="col" role="columnheader">Saldo liberado</th>
+                  <th scope="col" role="columnheader">Juros</th>
+                  <th scope="col" role="columnheader">TR</th>
+                  <th scope="col" role="columnheader">Seguro</th>
+                  <th scope="col" role="columnheader">Taxas</th>
+                  <th scope="col" role="columnheader">Pago à CAIXA</th>
+                  <th scope="col" role="columnheader">Restante estimado</th>
+                </tr>
+              </thead>
+              <tbody role="rowgroup">
+                @for (row of result.rows; track row.month) {
+                  <tr role="row">
+                    <th scope="row" role="rowheader" class="ledger-month ledger-payer">
+                      <strong>{{ monthLabel(row.month) }}</strong>
+                      @if (row.settled) { <span class="status-tag active">Encerrado na CAIXA</span> }
+                      @else if (!row.paymentAllocationKnown) { <span class="status-tag pending">Confira os encargos de atraso</span> }
+                    </th>
+                    <td role="cell"><span class="mobile-label" aria-hidden="true">Liberação no mês</span>{{ amount(row.releaseCents) }}</td>
+                    <td role="cell"><span class="mobile-label" aria-hidden="true">Saldo liberado</span>{{ amount(row.releasedCents) }}</td>
+                    <td role="cell"><span class="mobile-label" aria-hidden="true">Juros</span>{{ amount(row.interestCents) }}</td>
+                    <td role="cell"><span class="mobile-label" aria-hidden="true">TR</span>{{ amount(row.trCents) }}</td>
+                    <td role="cell"><span class="mobile-label" aria-hidden="true">Seguro</span>{{ amount(row.insuranceCents) }}</td>
+                    <td role="cell"><span class="mobile-label" aria-hidden="true">Taxas</span>{{ amount(row.feesCents) }}</td>
+                    <td role="cell"><span class="mobile-label" aria-hidden="true">Pago à CAIXA</span>{{ amount(row.caixaPaidCents) }}</td>
+                    <td role="cell" class="ledger-payer">
+                      <span class="mobile-label" aria-hidden="true">Restante estimado</span>
+                      <strong>{{ amount(row.totalCents) }}</strong>
+                      @if (row.totalCents === null) { <span class="muted">Mínimo {{ amount(row.knownSubtotalCents) }}</span> }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <p class="muted">A projeção cobre os encargos de obra da CAIXA. Quando falta discriminar juros e multa de um pagamento, o subtotal usa o maior abatimento possível e o total fica em aberto.</p>
+        } @else {
+          <p class="inline-note">A entrega prevista é anterior ao mês atual. Não há meses a projetar.</p>
+        }
+      </section>
+    }
   }
 </section>

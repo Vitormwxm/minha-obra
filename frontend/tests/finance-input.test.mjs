@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseBrl, parseNominalRate, validDate, validMonth } from '../src/app/finance-input.ts';
+import { parseBrl, parsePercent, validDate, validMonth } from '../src/app/finance-input.ts';
 
 test('BRL text yields integer cents without rounding or treating empty as zero', () => {
   assert.equal(parseBrl(' R$ 1.234,56 '), 123456);
@@ -13,12 +13,13 @@ test('BRL text yields integer cents without rounding or treating empty as zero',
   }
 });
 
-test('annual rate text uses the canonical decimal string expected by the API', () => {
-  assert.equal(parseNominalRate(' 07,123456 '), '7.123456');
-  assert.equal(parseNominalRate('00,5'), '0.5');
-  assert.equal(parseNominalRate('100'), '100');
+test('rate text uses the canonical decimal string expected by the API', () => {
+  assert.equal(parsePercent(' 07,123456 '), '7.123456');
+  assert.equal(parsePercent('00,5'), '0.5');
+  assert.equal(parsePercent('100'), '100');
+  assert.equal(parsePercent('0,000000'), '0.000000');
   for (const invalid of ['', '-0,01', '100.000001', '8,1234567', '7%', '1e2']) {
-    assert.equal(parseNominalRate(invalid), null, invalid);
+    assert.equal(parsePercent(invalid), null, invalid);
   }
 });
 

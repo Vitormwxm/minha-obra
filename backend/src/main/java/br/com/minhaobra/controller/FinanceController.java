@@ -11,6 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -31,6 +32,11 @@ public class FinanceController {
     @GetMapping
     public ResponseEntity<Finance.Ledger> ledger(Authentication auth) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(finance.ledger(sessions.principal(auth)));
+    }
+
+    @PostMapping("/tr/official")
+    public Finance.OfficialTrResult officialTr(Authentication auth, @Valid @RequestBody Finance.OfficialTrInput input) {
+        return finance.officialTr(sessions.principal(auth), input);
     }
 
     @PutMapping("/financing")

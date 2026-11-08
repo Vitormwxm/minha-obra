@@ -1,8 +1,8 @@
 # Arquitetura da plataforma
 
-A área Minha obra reúne o cadastro de um financiamento CAIXA e o histórico
-mensal de pagamentos por conta aprovada. O simulador estático da raiz continua
-como referência para as próximas etapas de cálculo e projeção.
+A área Minha obra reúne o financiamento CAIXA, o histórico mensal de pagamentos,
+a TR por competência e uma projeção até a entrega prevista. O simulador
+estático da raiz continua disponível como referência do modelo de projeção.
 
 ## Decisões
 
@@ -61,6 +61,35 @@ valores são conhecidos, os acumulados e a variação entre meses consecutivos
 concluídos. É possível registrar explicitamente que uma parte ficou sem cobrança,
 ou deixar a situação em aberto. O aviso de lacunas vai do início informado
 até o último mês cadastrado. A API associa o financiamento à conta da sessão.
+
+## TR e projeção
+
+A planilha mostra uma TR por mês. O valor manual tem prioridade. Ao consultar
+a taxa oficial, o usuário informa o início e o fim do período conforme o
+contrato. O servidor só usa a taxa da série SGS 226 que coincide com as duas
+datas. As consultas bem-sucedidas ficam em cache no PostgreSQL por período.
+A consulta externa envia apenas a data inicial e é feita sob demanda.
+[Histórico da série SGS 226](https://www3.bcb.gov.br/sgspub/consultarvalores/consultarValoresSeries.do?method=consultarSeries&series=226).
+
+Na falta de taxa manual ou oficial, a estimativa usa o total quitado à CAIXA
+menos seguro, taxas e encargos de atraso, com o saldo-base daquele lançamento
+e os juros nominais anuais cadastrados no financiamento. O modelo estima a TR
+invertendo a soma da correção com os juros sobre o saldo corrigido. Pagamentos
+em atraso precisam ter o encargo informado, inclusive quando for zero. A
+estimativa fica vazia se faltarem dados ou a diferença for incompatível com
+o modelo. Os encargos efetivos seguem as cláusulas do contrato.
+[Cartilha da CAIXA sobre a fase de obras](https://www.caixa.gov.br/Downloads/habitacao-documentos-gerais/Cartilha_Juros_Fase_de_Obras.pdf).
+
+A projeção abrange os encargos da CAIXA do mês atual até o mês previsto da
+entrega. Ela distribui a diferença entre o saldo atual liberado e o valor
+financiado, com ajuste de centavos no último mês. O modelo considera a
+liberação no fim do mês e a correção da TR paga no encargo.
+A TR futura é uma hipótese editável. O usuário pode reaproveitar como
+hipótese o valor registrado no histórico. Pagamentos registrados reduzem
+o saldo a pagar projetado, e meses quitados entram com saldo a pagar zero.
+Campos em branco podem deixar a projeção parcial. Se o valor de um pagamento
+destinado à evolução for incerto, o subtotal usa o maior abatimento possível. Pagamentos da construtora
+e INCC são tratados separadamente.
 
 ## Regras financeiras aprovadas
 

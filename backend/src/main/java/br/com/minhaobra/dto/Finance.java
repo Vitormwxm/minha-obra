@@ -2,6 +2,7 @@ package br.com.minhaobra.dto;
 
 import br.com.minhaobra.domain.PaymentMonth.Kind;
 import br.com.minhaobra.domain.PaymentMonth.Status;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.Digits;
@@ -44,7 +45,30 @@ public final class Finance {
             @Digits(integer = 11, fraction = 0) @Min(0) @Max(MAX_CENTS) BigDecimal releasedCents,
             @Digits(integer = 11, fraction = 0) @Min(0) @Max(MAX_CENTS) BigDecimal insuranceCents,
             @Digits(integer = 11, fraction = 0) @Min(0) @Max(MAX_CENTS) BigDecimal feesCents,
-            @NotNull @Size(max = MAX_PAYMENTS) List<@NotNull @Valid PaymentInput> payments) {
+            @NotNull @Size(max = MAX_PAYMENTS) List<@NotNull @Valid PaymentInput> payments,
+            @JsonInclude(JsonInclude.Include.NON_NULL) @Valid TrSettings trSettings) {
+    }
+
+    public record TrSettings(
+            @Pattern(regexp = DATE_PATTERN) String periodStart,
+            @Pattern(regexp = DATE_PATTERN) String periodEnd,
+            @Pattern(regexp = "(?:0|[1-9][0-9]{0,2})(?:\\.[0-9]{1,6})?")
+            @DecimalMax("100") String manualRate) {
+    }
+
+    public record OfficialTrInput(
+            @NotNull @Pattern(regexp = DATE_PATTERN) String startDate,
+            @NotNull @Pattern(regexp = DATE_PATTERN) String endDate) {
+    }
+
+    public record OfficialTrResult(String rate) {
+    }
+
+    public enum TrOrigin {
+        OFFICIAL, ESTIMATED, MANUAL
+    }
+
+    public record TrRate(String rate, TrOrigin origin) {
     }
 
     public record PaymentInput(
@@ -72,7 +96,8 @@ public final class Finance {
             Status caixaStatus, Status builderStatus, Long releasedCents, Long insuranceCents, Long feesCents,
             List<PaymentView> payments, boolean closed, Long caixaPaidCents, Long builderPaidCents,
             Long monthlyTotalCents, long caixaAccumulatedCents, long builderAccumulatedCents,
-            long accumulatedPaidCents, Long monthlyVariationCents) {
+            long accumulatedPaidCents, Long monthlyVariationCents,
+            String trPeriodStart, String trPeriodEnd, String manualTr, TrRate tr) {
     }
 
     public record Ledger(FinancingView financing, List<MonthView> months, List<String> missingMonths) {

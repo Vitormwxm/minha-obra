@@ -69,7 +69,7 @@ class FinanceIT {
 
     @BeforeEach
     void clean() {
-        jdbc.execute("TRUNCATE app_account, spring_session CASCADE");
+        jdbc.execute("TRUNCATE app_account, spring_session, official_tr_rate CASCADE");
     }
 
     @AfterAll
@@ -252,6 +252,54 @@ class FinanceIT {
         JsonNode currentMonth = browser.ledger().get("months").get(1);
         assertFalse(currentMonth.get("closed").asBoolean());
         assertEquals(0, currentMonth.get("monthlyTotalCents").asLong());
+    }
+
+    @Test
+    void trUsesExactOfficialPeriodAndKeepsManualChoiceAcrossOlderClients() throws Exception {
+        Browser browser = login("owner_tr", "USER");
+        assertStatus(200, browser.save(FINANCING, financing(null)));
+        String path = month("2025-03");
+        var historical = row(null, "PAID", "NO_PAYMENT", payment("CAIXA", "2025-03-11", 15_889, null));
+        historical.put("caixaDueDate", "2025-03-10");
+        long version = revision(browser.save(path, historical));
+        assertTrue(browser.ledger().get("months").get(0).get("tr").isNull());
+
+        historical.put("payments", List.of(payment("CAIXA", "2025-03-11", 15_889, 70L)));
+        historical.put("version", version);
+        historical.put("trSettings", Map.of("periodStart", "2025-03-01"));
+        assertError(400, "INVALID_TR_PERIOD", browser.save(path, historical));
+        historical.put("trSettings", Map.of("periodStart", "2025-03-01", "periodEnd", "2025-04-01"));
+        version = revision(browser.save(path, historical));
+        var tr = browser.ledger().get("months").get(0).get("tr");
+        assertEquals("ESTIMATED", tr.get("origin").asString());
+        assertEquals("0.100012", tr.get("rate").asString());
+
+        jdbc.update("""
+                INSERT INTO official_tr_rate (period_start, period_end, rate_percent)
+                VALUES (DATE '2025-03-01', DATE '2025-03-31', 0.0771), (DATE '2025-03-01', DATE '2025-04-01', 0.1092)
+                """);
+        var official = browser.send("POST", FINANCE + "/tr/official",
+                Map.of("startDate", "2025-03-01", "endDate", "2025-04-01"), null, true);
+        assertStatus(200, official);
+        assertEquals("0.1092", json.readTree(official.body()).get("rate").asString());
+        tr = browser.ledger().get("months").get(0).get("tr");
+        assertEquals("OFFICIAL", tr.get("origin").asString());
+        assertEquals("0.1092", tr.get("rate").asString());
+
+        historical.put("version", version);
+        historical.put("trSettings", Map.of("periodStart", "2025-03-01", "periodEnd", "2025-04-01", "manualRate", "0"));
+        version = revision(browser.save(path, historical));
+        historical.put("version", version);
+        historical.remove("trSettings");
+        version = revision(browser.save(path, historical));
+        tr = browser.ledger().get("months").get(0).get("tr");
+        assertEquals("MANUAL", tr.get("origin").asString());
+        assertEquals("0", tr.get("rate").asString());
+
+        historical.put("version", version);
+        historical.put("trSettings", Map.of("periodStart", "2025-03-01", "periodEnd", "2025-04-01"));
+        assertStatus(200, browser.save(path, historical));
+        assertEquals("OFFICIAL", browser.ledger().get("months").get(0).get("tr").get("origin").asString());
     }
 
     private Browser login(String username, String role) throws Exception {
