@@ -7,6 +7,7 @@ import {
   PaymentStatus, TrOrigin,
 } from './finance-api';
 import { parseBrl, parsePercent, validDate, validMonth } from './finance-input';
+import { ProjectionChart } from './projection-chart';
 import { OperationKey } from './security-input';
 
 type FinanceView = 'summary' | 'financing' | 'month' | 'projection';
@@ -24,7 +25,7 @@ class InputProblem extends Error {
 
 @Component({
   selector: 'app-finance',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, ProjectionChart],
   templateUrl: './finance.html',
   styleUrl: './finance.css',
 })
