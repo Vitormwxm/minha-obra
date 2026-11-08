@@ -1,0 +1,210 @@
+<section class="finance" aria-labelledby="finance-title" [attr.aria-busy]="loading() || busy()">
+  <header class="finance-heading">
+    <span class="eyebrow">ACOMPANHAMENTO DA OBRA</span>
+    @switch (view()) {
+      @case ('financing') {
+        <h1 id="finance-title" tabindex="-1">{{ snapshot()?.financing ? 'Editar financiamento' : 'Cadastrar financiamento' }}</h1>
+        <p>Use os dados do seu contrato e do aplicativo Habitação CAIXA.</p>
+      }
+      @case ('month') {
+        <h1 id="finance-title" tabindex="-1">{{ editingMonth() ? 'Detalhes do lançamento' : 'Novo lançamento mensal' }}</h1>
+        <p>Registre cada pagamento no mês de vencimento, mesmo que tenha pago em outra data.</p>
+      }
+      @default {
+        <h1 id="finance-title" tabindex="-1">Minha obra</h1>
+        <p>Acompanhe o financiamento do seu apartamento e os pagamentos mês a mês.</p>
+      }
+    }
+  </header>
+
+  @if (notice()) {
+    <div class="alert success" role="status"><span aria-hidden="true">✓</span><p>{{ notice() }}</p></div>
+  }
+  @if (loadError() || error()) {
+    <div id="finance-error" class="alert error" role="alert"><span aria-hidden="true">!</span><p>{{ loadError() || error() }}</p></div>
+  }
+
+  @if (view() === 'summary') {
+    @if (loading()) {
+      <p class="loading-state" role="status">Carregando os dados da obra…</p>
+    } @else if (loadError()) {
+      <button class="secondary-button" type="button" (click)="reload()">Tentar carregar novamente</button>
+    } @else if (snapshot(); as data) {
+      @if (data.financing; as financing) {
+        <article class="finance-panel" aria-labelledby="financing-summary">
+          <div class="section-heading">
+            <div><span class="eyebrow">FINANCIAMENTO HABITACIONAL</span><h2 id="financing-summary">Apartamento CAIXA</h2></div>
+            <button class="secondary-button" type="button" (click)="openFinancing()" [disabled]="busy()">Editar financiamento</button>
+          </div>
+          <dl class="financing-facts">
+            <div><dt>Valor do financiamento</dt><dd>{{ amount(financing.financedCents) }}</dd></div>
+            <div><dt>Saldo atual liberado</dt><dd>{{ amount(financing.releasedCents) }}</dd></div>
+            <div><dt>Juros nominais anuais</dt><dd>{{ financing.annualNominalRate.replace('.', ',') }}%</dd></div>
+            <div><dt>Previsão de entrega</dt><dd>{{ dateLabel(financing.expectedDeliveryDate) }}</dd></div>
+            <div><dt>Início do acompanhamento</dt><dd>{{ monthLabel(financing.trackingStartMonth) }}</dd></div>
+            <div><dt>Subsídio habitacional</dt><dd>{{ amount(financing.subsidyCents) }}</dd></div>
+          </dl>
+          <p class="muted">O subsídio aparece separado dos pagamentos e dos totais da planilha.</p>
+        </article>
+
+        <section class="finance-panel ledger-panel" aria-labelledby="ledger-title">
+          <div class="section-heading">
+            <div><span class="eyebrow">PAGAMENTOS REGISTRADOS</span><h2 id="ledger-title">Planilha mensal</h2></div>
+            <div class="finance-actions">
+              <button class="secondary-button" type="button" (click)="reload()" [disabled]="busy()">Atualizar dados</button>
+              <button class="primary-button" type="button" (click)="openMonth()" [disabled]="busy()">Novo lançamento</button>
+            </div>
+          </div>
+          @if (data.missingMonths.length) {
+            <div class="gap-alert" role="status">
+              <strong>{{ data.missingMonths.length === 1 ? 'Há um mês sem lançamento.' : 'Há meses sem lançamento.' }}</strong>
+              <ul class="missing-months">
+                @for (month of data.missingMonths.slice(0, 6); track month) { <li>{{ monthLabel(month) }}</li> }
+                @if (data.missingMonths.length > 6) { <li>Mais {{ data.missingMonths.length - 6 }}</li> }
+              </ul>
+              <p>Preencha os meses faltantes para completar o histórico do período.</p>
+            </div>
+          }
+          @if (data.months.length) {
+            <p id="ledger-help" class="muted">O traço indica valor desconhecido. Os acumulados somam os pagamentos registrados. A variação compara meses consecutivos concluídos.</p>
+            <div class="ledger-scroll" role="region" aria-label="Planilha mensal de pagamentos" tabindex="0">
+              <table class="ledger" role="table" aria-describedby="ledger-help">
+                <thead role="rowgroup">
+                  <tr role="row">
+                    <th scope="col" role="columnheader">Mês</th>
+                    <th scope="col" role="columnheader">CAIXA</th>
+                    <th scope="col" role="columnheader">Construtora</th>
+                    <th scope="col" role="columnheader">Total mensal</th>
+                    <th scope="col" role="columnheader">CAIXA acumulado</th>
+                    <th scope="col" role="columnheader">Construtora acumulado</th>
+                    <th scope="col" role="columnheader">Total acumulado</th>
+                    <th scope="col" role="columnheader">Variação mensal</th>
+                    <th scope="col" role="columnheader">Ações</th>
+                  </tr>
+                </thead>
+                <tbody role="rowgroup">
+                  @for (row of data.months; track row.month) {
+                    <tr role="row">
+                      <th scope="row" role="rowheader" class="ledger-month">{{ monthLabel(row.month) }}</th>
+                      <td role="cell" class="ledger-payer"><span class="mobile-label" aria-hidden="true">CAIXA</span><strong>{{ amount(row.caixaPaidCents) }}</strong><span class="status-tag" [class.active]="row.caixaStatus === 'PAID'" [class.pending]="row.caixaStatus === 'OPEN'" [class.neutral]="row.caixaStatus === 'NO_PAYMENT'">{{ statuses[row.caixaStatus] }}</span></td>
+                      <td role="cell" class="ledger-payer"><span class="mobile-label" aria-hidden="true">Construtora</span><strong>{{ amount(row.builderPaidCents) }}</strong><span class="status-tag" [class.active]="row.builderStatus === 'PAID'" [class.pending]="row.builderStatus === 'OPEN'" [class.neutral]="row.builderStatus === 'NO_PAYMENT'">{{ statuses[row.builderStatus] }}</span></td>
+                      <td role="cell"><span class="mobile-label" aria-hidden="true">Total mensal</span>{{ amount(row.monthlyTotalCents) }}</td>
+                      <td role="cell"><span class="mobile-label" aria-hidden="true">CAIXA acumulado</span>{{ amount(row.caixaAccumulatedCents) }}</td>
+                      <td role="cell"><span class="mobile-label" aria-hidden="true">Construtora acumulado</span>{{ amount(row.builderAccumulatedCents) }}</td>
+                      <td role="cell"><span class="mobile-label" aria-hidden="true">Total acumulado</span>{{ amount(row.accumulatedPaidCents) }}</td>
+                      <td role="cell"><span class="mobile-label" aria-hidden="true">Variação mensal</span>{{ amount(row.monthlyVariationCents) }}</td>
+                      <td role="cell" class="ledger-details"><button class="text-button" type="button" (click)="openMonth(row)" [disabled]="busy()" [attr.aria-label]="'Abrir detalhes de ' + monthLabel(row.month)">Detalhes <span aria-hidden="true">→</span></button></td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
+            <p class="inline-note">Ainda não há lançamentos. Você pode começar pelo mês atual ou registrar meses anteriores a partir do início do acompanhamento.</p>
+          }
+        </section>
+      } @else {
+        <article class="finance-panel empty-finance" aria-labelledby="first-financing-title">
+          <div><span class="eyebrow">PRIMEIRO PASSO</span><h2 id="first-financing-title">Cadastre seu financiamento CAIXA</h2><p>Escolha a partir de qual mês quer acompanhar os pagamentos.</p></div>
+          <button class="primary-button" type="button" (click)="openFinancing()" [disabled]="busy()">Cadastrar financiamento <span aria-hidden="true">→</span></button>
+        </article>
+      }
+    }
+  } @else if (view() === 'financing') {
+    <form class="finance-panel finance-form" [formGroup]="financingForm" (ngSubmit)="saveFinancing()" (input)="clearInputProblem()">
+      <fieldset class="form-fields" [disabled]="busy()">
+        <legend class="form-legend">Dados do contrato</legend>
+        <div class="form-grid">
+          <div class="field"><label for="financed">Valor do financiamento</label><input id="financed" formControlName="financed" required inputmode="decimal" maxlength="22" placeholder="R$ 0,00" [attr.aria-invalid]="invalidField() === 'financed'" /></div>
+          <div class="field"><label for="released">Saldo atual liberado pela CAIXA</label><input id="released" formControlName="released" required inputmode="decimal" maxlength="22" placeholder="R$ 0,00" [attr.aria-invalid]="invalidField() === 'released'" /></div>
+          <div class="field"><label for="nominal">Juros nominais (% ao ano)</label><input id="nominal" formControlName="nominal" required inputmode="decimal" maxlength="10" placeholder="Ex.: 8,25" aria-describedby="nominal-help" [attr.aria-invalid]="invalidField() === 'nominal'" /><small id="nominal-help">Use a taxa nominal do contrato.</small></div>
+          <div class="field"><label for="delivery">Previsão de entrega</label><input id="delivery" type="date" formControlName="delivery" required min="1900-01-01" max="2100-12-31" placeholder="AAAA-MM-DD" [attr.aria-invalid]="invalidField() === 'delivery'" /></div>
+          <div class="field"><label for="tracking">Início do acompanhamento</label><input id="tracking" type="month" formControlName="tracking" required min="1900-01" max="2100-12" placeholder="AAAA-MM" aria-describedby="tracking-help" [attr.aria-invalid]="invalidField() === 'tracking'" /><small id="tracking-help">Você pode começar agora, mesmo sem lançar os meses anteriores.</small></div>
+          <div class="field"><label for="subsidy">Subsídio habitacional <span>(opcional)</span></label><input id="subsidy" formControlName="subsidy" inputmode="decimal" maxlength="22" placeholder="R$ 0,00" [attr.aria-invalid]="invalidField() === 'subsidy'" /></div>
+        </div>
+      </fieldset>
+      <div class="finance-actions form-actions">
+        <button class="secondary-button" type="button" (click)="backToSummary()" [disabled]="busy()">Voltar à minha obra</button>
+        <button class="primary-button" type="submit" [disabled]="busy()">{{ busy() ? 'Salvando…' : 'Salvar financiamento' }}</button>
+      </div>
+    </form>
+  } @else if (snapshot()?.financing; as financing) {
+    <form class="finance-panel finance-form" [formGroup]="monthForm" (ngSubmit)="saveMonth()" (input)="clearInputProblem()">
+      <fieldset class="form-fields" [disabled]="busy() || confirmingDelete()">
+        <legend class="form-legend">Mês e vencimentos</legend>
+        <div class="field month-picker">
+          <label for="ledger-month">Mês de vencimento</label>
+          @if (editingMonth(); as existing) {
+            <input id="ledger-month" type="text" [value]="monthLabel(existing.month)" readonly />
+          } @else {
+            <input id="ledger-month" type="month" formControlName="month" required [min]="financing.trackingStartMonth" max="2100-12" placeholder="AAAA-MM" [attr.aria-invalid]="invalidField() === 'ledger-month'" />
+          }
+        </div>
+        <div class="form-grid payer-grid">
+          <fieldset class="payer">
+            <legend>CAIXA · Evolução de obra</legend>
+            <div class="field"><label for="caixa-status">Situação da CAIXA</label><select id="caixa-status" formControlName="caixaStatus" [attr.aria-invalid]="invalidField() === 'caixa-status'"><option value="OPEN">Em aberto</option><option value="PAID">Quitado</option><option value="NO_PAYMENT">Sem pagamento</option></select></div>
+            <div class="field"><label for="caixa-due">Vencimento CAIXA <span>(opcional)</span></label><input id="caixa-due" type="date" formControlName="caixaDue" min="1900-01-01" max="2100-12-31" placeholder="AAAA-MM-DD" [attr.aria-invalid]="invalidField() === 'caixa-due'" /></div>
+          </fieldset>
+          <fieldset class="payer">
+            <legend>Construtora</legend>
+            <div class="field"><label for="builder-status">Situação da construtora</label><select id="builder-status" formControlName="builderStatus" [attr.aria-invalid]="invalidField() === 'builder-status'"><option value="OPEN">Em aberto</option><option value="PAID">Quitado</option><option value="NO_PAYMENT">Sem pagamento</option></select></div>
+            <div class="field"><label for="builder-due">Vencimento construtora <span>(opcional)</span></label><input id="builder-due" type="date" formControlName="builderDue" min="1900-01-01" max="2100-12-31" placeholder="AAAA-MM-DD" [attr.aria-invalid]="invalidField() === 'builder-due'" /></div>
+          </fieldset>
+        </div>
+        <p class="muted form-help">Use “Sem pagamento” quando souber que não houve pagamento para aquela parte no mês. Para valores ainda em aberto, use “Em aberto”.</p>
+      </fieldset>
+
+      <fieldset class="form-fields" [disabled]="busy() || confirmingDelete()">
+        <legend class="form-legend">Dados da evolução de obra</legend>
+        <div class="form-grid three-fields">
+          <div class="field"><label for="month-released">Saldo liberado no mês <span>(opcional)</span></label><input id="month-released" formControlName="released" inputmode="decimal" maxlength="22" placeholder="R$ 0,00" [attr.aria-invalid]="invalidField() === 'month-released'" /></div>
+          <div class="field"><label for="insurance">Seguro do mês <span>(opcional)</span></label><input id="insurance" formControlName="insurance" inputmode="decimal" maxlength="22" placeholder="R$ 0,00" [attr.aria-invalid]="invalidField() === 'insurance'" /></div>
+          <div class="field"><label for="fees">Taxas do mês <span>(opcional)</span></label><input id="fees" formControlName="fees" inputmode="decimal" maxlength="22" placeholder="R$ 0,00" [attr.aria-invalid]="invalidField() === 'fees'" /></div>
+        </div>
+        <p class="muted form-help">Use os valores do extrato da CAIXA. Deixe em branco quando não souber.</p>
+      </fieldset>
+
+      <fieldset class="form-fields" [disabled]="busy() || confirmingDelete()">
+        <legend class="form-legend">Pagamentos efetivamente realizados</legend>
+        <p class="muted form-help">Adicione uma linha para cada pagamento. Se houve juros ou multa por atraso, registre quanto desse valor já está incluído no total pago.</p>
+        <div formArrayName="payments" class="payments">
+          @for (payment of payments.controls; track payment; let index = $index) {
+            <fieldset [formGroupName]="index" class="payment">
+              <legend>Pagamento {{ index + 1 }}</legend>
+              <div class="payment-fields">
+                <div class="field"><label [for]="'payment-kind-' + index">Pago a</label><select [id]="'payment-kind-' + index" formControlName="kind"><option value="CAIXA">CAIXA</option><option value="CONSTRUTORA">Construtora</option></select></div>
+                <div class="field"><label [for]="'payment-date-' + index">Data do pagamento</label><input [id]="'payment-date-' + index" type="date" formControlName="paidOn" required min="1900-01-01" [max]="today" placeholder="AAAA-MM-DD" [attr.aria-invalid]="invalidField() === 'payment-date-' + index" /></div>
+                <div class="field"><label [for]="'payment-paid-' + index">Valor pago</label><input [id]="'payment-paid-' + index" formControlName="paid" required inputmode="decimal" maxlength="22" placeholder="R$ 0,00" [attr.aria-invalid]="invalidField() === 'payment-paid-' + index" /></div>
+                <div class="field"><label [for]="'payment-late-' + index">Juros e multa <span>(opcional)</span></label><input [id]="'payment-late-' + index" formControlName="late" inputmode="decimal" maxlength="22" placeholder="R$ 0,00" [attr.aria-invalid]="invalidField() === 'payment-late-' + index" /></div>
+              </div>
+              <button class="text-button delete-button" type="button" (click)="removePayment(index)" [attr.aria-label]="'Remover pagamento ' + (index + 1)">Remover pagamento</button>
+            </fieldset>
+          }
+        </div>
+        <div class="finance-actions">
+          <button id="add-caixa-payment" class="secondary-button" type="button" (click)="addPayment('CAIXA')" [disabled]="payments.length >= paymentLimit">Adicionar pagamento CAIXA</button>
+          <button class="secondary-button" type="button" (click)="addPayment('CONSTRUTORA')" [disabled]="payments.length >= paymentLimit">Adicionar pagamento à construtora</button>
+        </div>
+        @if (payments.length >= paymentLimit) { <p class="muted">Limite de {{ paymentLimit }} pagamentos por mês atingido.</p> }
+      </fieldset>
+
+      @if (confirmingDelete() && editingMonth(); as existing) {
+        <section class="delete-confirmation" aria-labelledby="confirm-delete-month">
+          <h2 id="confirm-delete-month" tabindex="-1">Excluir {{ monthLabel(existing.month) }}?</h2>
+          <p>O lançamento e os pagamentos registrados nesse mês serão excluídos. Os acumulados serão atualizados.</p>
+          <div class="finance-actions">
+            <button class="secondary-button" type="button" (click)="setDeleteConfirmation(false)" [disabled]="busy()">Cancelar exclusão</button>
+            <button class="primary-button danger-button" type="button" (click)="deleteMonth()" [disabled]="busy()">{{ busy() ? 'Excluindo…' : 'Excluir lançamento' }}</button>
+          </div>
+        </section>
+      } @else {
+        <div class="finance-actions form-actions">
+          @if (editingMonth()) { <button id="delete-month" class="text-button delete-button" type="button" (click)="setDeleteConfirmation(true)" [disabled]="busy()">Excluir lançamento</button> }
+          <button class="secondary-button" type="button" (click)="backToSummary()" [disabled]="busy()">Voltar à planilha</button>
+          <button class="primary-button" type="submit" [disabled]="busy()">{{ busy() ? 'Salvando…' : 'Salvar lançamento' }}</button>
+        </div>
+      }
+    </form>
+  }
+</section>

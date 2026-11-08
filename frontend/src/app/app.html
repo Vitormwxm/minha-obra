@@ -8,7 +8,7 @@
       <span>Minha Obra</span>
     </a>
     @if (session(); as current) {
-      <div class="header-account"><span class="header-name">{{ current.user.displayName }}</span><button class="text-button logout" type="button" (click)="logout()" [disabled]="busy() || adminBusy()">Sair</button></div>
+      <div class="header-account"><span class="header-name">{{ current.user.displayName }}</span><button class="text-button logout" type="button" (click)="logout()" [disabled]="busy() || workspaceBusy()">Sair</button></div>
     } @else {
       <span class="environment"><span aria-hidden="true"></span>Seu espaço, sua obra</span>
     }
@@ -165,19 +165,22 @@
     } @else if (session(); as current) {
       <div class="workspace">
         <nav class="workspace-nav" aria-label="Minha conta">
-          <button type="button" [class.selected]="page() === 'overview'" [attr.aria-current]="page() === 'overview' ? 'page' : null" (click)="page.set('overview')" [disabled]="adminBusy()">Visão geral</button>
-          @if (current.user.role === 'ADMIN') { <button type="button" [class.selected]="page() === 'accounts'" [attr.aria-current]="page() === 'accounts' ? 'page' : null" (click)="page.set('accounts')" [disabled]="adminBusy()">Pessoas e acessos</button> }
+          <button type="button" [class.selected]="page() === 'overview'" [attr.aria-current]="page() === 'overview' ? 'page' : null" (click)="showWorkspacePage('overview')" [disabled]="workspaceBusy()">Visão geral</button>
+          <button type="button" [class.selected]="page() === 'finance'" [attr.aria-current]="page() === 'finance' ? 'page' : null" (click)="showWorkspacePage('finance')" [disabled]="workspaceBusy()">Minha obra</button>
+          @if (current.user.role === 'ADMIN') { <button type="button" [class.selected]="page() === 'accounts'" [attr.aria-current]="page() === 'accounts' ? 'page' : null" (click)="showWorkspacePage('accounts')" [disabled]="workspaceBusy()">Pessoas e acessos</button> }
         </nav>
         @if (page() === 'accounts' && current.user.role === 'ADMIN') {
-          <app-admin-accounts [currentUser]="current.user" (expired)="sessionExpired()" (processing)="adminBusy.set($event)" />
+          <app-admin-accounts [currentUser]="current.user" (expired)="sessionExpired()" (processing)="workspaceBusy.set($event)" />
+        } @else if (page() === 'finance' && current.stage === 'AUTHENTICATED') {
+          <app-finance (expired)="sessionExpired()" (processing)="workspaceBusy.set($event)" />
         } @else {
           <section class="overview" aria-labelledby="overview-title">
             <div class="overview-heading"><span class="eyebrow">{{ current.user.role === 'ADMIN' ? 'PAINEL ADMINISTRATIVO' : 'MINHA CONTA' }}</span><h1 id="overview-title" tabindex="-1">Olá, {{ current.user.displayName }}.</h1><p>Seu acesso está pronto. Que bom construir o próximo passo com você.</p></div>
             @if (current.user.role === 'ADMIN') {
-              <article class="feature-card admin-feature"><span class="feature-number" aria-hidden="true">01</span><div><span class="eyebrow">ADMINISTRAÇÃO</span><h2>Organize os acessos à plataforma.</h2><p>Aprove solicitações, redefina senhas e gerencie bloqueios em um só lugar.</p></div><button class="primary-button" type="button" (click)="page.set('accounts')">Gerenciar pessoas <span aria-hidden="true">→</span></button></article>
+              <article class="feature-card admin-feature"><span class="feature-number" aria-hidden="true">01</span><div><span class="eyebrow">ADMINISTRAÇÃO</span><h2>Organize os acessos à plataforma.</h2><p>Aprove solicitações, redefina senhas e gerencie bloqueios em um só lugar.</p></div><button class="primary-button" type="button" (click)="showWorkspacePage('accounts')">Gerenciar pessoas <span aria-hidden="true">→</span></button></article>
             }
-            <article class="feature-card coming-next"><span class="feature-number" aria-hidden="true">↗</span><div><span class="eyebrow">O PRÓXIMO PASSO</span><h2>Sua obra, com mais clareza.</h2><p>Os recursos para acompanhar financiamento, pagamentos e projeções ainda estão em preparação.</p><span class="status-tag neutral">Em preparação</span></div></article>
-            <div class="account-settings"><div><h2>Cuide do seu acesso</h2><p>Você entrou como <strong>{{ current.user.username }}</strong>.</p></div><button class="secondary-button" type="button" (click)="openPasswordChange()" [disabled]="adminBusy()">Alterar minha senha</button></div>
+            <article class="feature-card finance-feature"><span class="feature-number" aria-hidden="true">↗</span><div><span class="eyebrow">ACOMPANHAMENTO DA OBRA</span><h2>Sua obra, com mais clareza.</h2><p>Cadastre seu financiamento CAIXA e acompanhe os pagamentos da evolução de obra e da construtora.</p></div><button class="primary-button" type="button" (click)="showWorkspacePage('finance')">Acompanhar minha obra <span aria-hidden="true">→</span></button></article>
+            <div class="account-settings"><div><h2>Cuide do seu acesso</h2><p>Você entrou como <strong>{{ current.user.username }}</strong>.</p></div><button class="secondary-button" type="button" (click)="openPasswordChange()" [disabled]="workspaceBusy()">Alterar minha senha</button></div>
           </section>
         }
       </div>
