@@ -95,13 +95,19 @@ export class AccountsApi {
     }
   }
 
-  private async post<T>(path: string, payload: unknown, key?: string): Promise<T> {
+  async mutate<T>(method: 'POST' | 'PUT' | 'DELETE', path: string, payload: unknown, key?: string): Promise<T> {
     if (!this.csrfToken) await this.refreshCsrf();
     // Angular reads the plain XSRF cookie. A JSON CsrfToken can be XOR-masked
     // by Spring's SPA handler, so it must not replace the cookie header.
     let headers = new HttpHeaders();
     if (key) headers = headers.set('Idempotency-Key', key);
-    return firstValueFrom(this.http.post<T>('/api' + path, payload, { headers, withCredentials: true }));
+    return firstValueFrom(this.http.request<T>(method, '/api' + path, {
+      body: payload, headers, withCredentials: true,
+    }));
+  }
+
+  private post<T>(path: string, payload: unknown, key?: string): Promise<T> {
+    return this.mutate<T>('POST', path, payload, key);
   }
 
   private async afterAuthentication(): Promise<void> {

@@ -1,8 +1,8 @@
 # Arquitetura da plataforma
 
-Contas, login, administração e pipelines compõem a etapa atual. O simulador
-estático da raiz continua como referência para o motor de cálculo e o controle
-financeiro da plataforma.
+A área Minha obra reúne o cadastro de um financiamento CAIXA e o histórico
+mensal de pagamentos por conta aprovada. O simulador estático da raiz continua
+como referência para as próximas etapas de cálculo e projeção.
 
 ## Decisões
 
@@ -47,6 +47,20 @@ exportação e cancelamento antes da execução. Análise administrativa com met
 operacional de resposta em sete dias. Bloquear conta preserva o histórico.
 Backups da plataforma: **manuais semanais**, por decisão do usuário. Não há
 agendamento automático ou retenção de 30 dias aprovada.
+
+## Controle de pagamentos
+
+Em **Minha obra**, cada pessoa informa o valor financiado, o saldo liberado,
+os juros nominais anuais, a entrega prevista, o início do acompanhamento e,
+se houver, o subsídio. Os lançamentos mensais aceitam vencimentos separados
+para CAIXA e construtora, saldo liberado, seguro, taxas e pagamentos por data.
+Um pagamento pode incluir encargos de atraso já contabilizados no valor pago.
+
+A planilha mostra o valor pago a cada parte, o total do mês quando ambos os
+valores são conhecidos, os acumulados e a variação entre meses consecutivos
+concluídos. É possível registrar explicitamente que uma parte ficou sem cobrança,
+ou deixar a situação em aberto. O aviso de lacunas vai do início informado
+até o último mês cadastrado. A API associa o financiamento à conta da sessão.
 
 ## Regras financeiras aprovadas
 

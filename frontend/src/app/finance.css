@@ -1,0 +1,63 @@
+:host { display: block; min-width: 0; }
+.finance-heading { margin-bottom: 28px; }
+.finance-heading h1 { margin: 10px 0; font-size: clamp(27px, 4vw, 36px); font-weight: 600; letter-spacing: -.03em; }
+.finance-heading p, .empty-finance p { margin: 0; font-size: 13px; line-height: 1.8; color: var(--muted); }
+.finance-panel { padding: clamp(16px, 3vw, 28px); border: 1px solid var(--border); border-radius: 18px; background: var(--surface); }
+.finance-panel + .finance-panel { margin-top: 20px; }
+.section-heading, .empty-finance { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.finance-panel h2 { margin: 6px 0; font-size: 20px; font-weight: 600; }
+.finance-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.financing-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 18px 0 12px; }
+.financing-facts div { border-radius: 10px; background: #f2f6f1; padding: 10px 12px; }
+.financing-facts dt, .muted { color: var(--muted); font-size: 11px; line-height: 1.7; }
+.financing-facts dd { margin: 4px 0 0; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.gap-alert { margin: 16px 0; border-radius: 10px; padding: 12px; background: #fbf3df; color: #6f531d; font-size: 12px; }
+.gap-alert p, .form-help { margin: 6px 0 0; }
+.missing-months { display: flex; flex-wrap: wrap; gap: 8px 25px; padding-left: 20px; margin: 7px 0; }
+.ledger-panel .inline-note { margin-top: 16px; }
+.ledger-scroll { overflow-x: auto; }
+.ledger { width: 100%; border-collapse: collapse; text-align: left; font-size: 11px; }
+.ledger td, .ledger th { padding: 9px 7px; border-bottom: 1px solid var(--border); }
+.ledger thead { color: #36594b; background: #f2f6f1; }
+.ledger td { white-space: nowrap; }
+.ledger-payer strong { display: block; margin-bottom: 4px; }
+.mobile-label { display: none; }
+.finance-form { max-width: 960px; }
+.form-fields, .payer, .payment { min-width: 0; margin: 0 0 20px; padding: 0; border: 0; }
+.form-legend { margin-bottom: 10px; padding: 0; font-size: 16px; font-weight: 600; }
+.form-grid, .payment-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.three-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.payment-fields { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.finance-form .field { margin-bottom: 4px; }
+.finance-form label span { color: var(--muted); font-weight: 400; }
+.finance-form .field select { width: 100%; min-width: 0; min-height: 49px; padding: 8px 12px; border: 1px solid #b8c9bd; border-radius: 10px; background: #fff; color: var(--ink); font-size: 13px; }
+.finance-form .field select[aria-invalid='true'] { border-color: #b85a4e; }
+.finance-form input[readonly] { background: #f4f7f3; }
+.month-picker { max-width: 240px; }
+.payer-grid { margin-top: 12px; }
+.payer, .payment { margin-bottom: 0; padding: 10px; border: 1px solid var(--border); border-radius: 10px; }
+.payer legend, .payment legend { padding: 0 5px; color: #36594b; font-size: 12px; font-weight: 600; }
+.payer .field + .field { margin-top: 10px; }
+.payments { display: grid; gap: 10px; margin: 10px 0; }
+.form-actions { justify-content: flex-end; border-top: 1px solid var(--border); padding-top: 14px; }
+.delete-button { color: #8e4238; min-height: 40px; }
+.delete-confirmation { padding: 12px; border: 1px solid #ead0c9; border-radius: 10px; background: #fcf1ed; }
+.delete-confirmation p { font-size: 12px; }
+.danger-button { background: #8e4238; border-color: #8e4238; }
+.danger-button:hover:not(:disabled) { background: #77362e; }
+
+@media (max-width: 760px) {
+  .ledger thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .ledger, .ledger tbody { display: block; }
+  .ledger tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 10px; padding: 8px; border: 1px solid var(--border); border-radius: 10px; }
+  .ledger td, .ledger th { border: 0; white-space: normal; overflow-wrap: anywhere; }
+  .ledger-month { grid-column: 1 / -1; font-size: 13px; background: #f2f6f1; border-radius: 6px; }
+  .mobile-label { display: block; color: #36594b; font-weight: 500; }
+  .ledger-details button { min-height: 40px; }
+  .payment-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 480px) {
+  .form-grid, .payment-fields { grid-template-columns: 1fr; }
+  .finance-actions > button { flex: 1 1 100%; }
+}

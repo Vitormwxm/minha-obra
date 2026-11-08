@@ -4,12 +4,13 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AccountsApi, apiMessage } from './accounts-api';
 import { ApiFailure, AuthSession, MfaSetup } from './accounts.models';
 import { AdminAccounts } from './admin-accounts';
+import { Finance } from './finance';
 import { HomeArt } from './home-art';
 import { normalizedUsername, OperationKey, passwordProblem, validUsername } from './security-input';
 
 @Component({
   selector: 'app-root',
-  imports: [ReactiveFormsModule, AdminAccounts, HomeArt],
+  imports: [ReactiveFormsModule, AdminAccounts, Finance, HomeArt],
   styleUrl: './app.css',
   templateUrl: './app.html',
 })
@@ -21,10 +22,10 @@ export class App implements OnInit {
   readonly session = signal<AuthSession | null>(null);
   readonly starting = signal(true);
   readonly busy = signal(false);
-  readonly adminBusy = signal(false);
+  readonly workspaceBusy = signal(false);
   readonly message = signal('');
   readonly notice = signal('');
-  readonly page = signal<'overview' | 'accounts'>('overview');
+  readonly page = signal<'overview' | 'accounts' | 'finance'>('overview');
   readonly accessPage = signal<'login' | 'register' | 'requested'>('login');
   readonly changingPassword = signal(false);
   readonly showPassword = signal(false);
@@ -229,7 +230,7 @@ export class App implements OnInit {
   }
 
   async logout(): Promise<void> {
-    if (this.busy() || this.adminBusy()) return;
+    if (this.busy() || this.workspaceBusy()) return;
     this.begin();
     try {
       await this.api.logout();
@@ -245,6 +246,12 @@ export class App implements OnInit {
   sessionExpired(): void {
     this.clearSession();
     this.message.set('Sua sessão terminou. Entre novamente para continuar.');
+  }
+
+  showWorkspacePage(page: 'overview' | 'accounts' | 'finance'): void {
+    if (this.workspaceBusy()) return;
+    this.page.set(page);
+    this.focusTitle();
   }
 
   openPasswordChange(): void {
@@ -320,6 +327,7 @@ export class App implements OnInit {
 
   private clearSession(): void {
     this.session.set(null);
+    this.workspaceBusy.set(false);
     this.mfaSetup.set(null);
     this.recoveryCodes.set([]);
     this.recoverySaved.set(false);

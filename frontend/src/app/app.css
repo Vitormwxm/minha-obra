@@ -54,8 +54,8 @@ main:focus, h1:focus { outline: none; }
 .feature-number { display: grid; place-items: center; flex-shrink: 0; width: 43px; height: 43px; color: var(--green); background: #e8f2ed; border-radius: 12px; font-size: 13px; }
 .admin-feature { align-items: center; }
 .admin-feature .primary-button { flex-shrink: 0; font-size: 11px; padding: 13px 18px; }
-.coming-next { background: #f0f3ec; }
-.coming-next .status-tag { margin-top: 18px; }
+.finance-feature { align-items: center; background: #f0f3ec; }
+@media (max-width: 480px) { .finance-feature .primary-button { margin-top: 22px; width: 100%; } }
 .account-settings { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 26px 0 0; margin-top: 30px; border-top: 1px solid var(--border); }
 .account-settings h2 { font-size: 13px; margin: 0 0 6px; font-weight: 500; }
 .account-settings p { font-size: 11px; color: var(--muted); margin: 0; overflow-wrap: anywhere; }

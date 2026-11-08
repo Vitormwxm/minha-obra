@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise account lifecycle through HTTPS against the isolated CI stack."""
+"""Exercise accounts and financing through HTTPS against the isolated CI stack."""
 import argparse
 import base64
 import hashlib
@@ -53,7 +53,7 @@ class Client:
             response = error
         with response:
             assert response.status == expected, f"{method} {path}: expected {expected}, got {response.status}."
-            assert "no-store" in response.headers.get("Cache-Control", ""), "Account responses must not be cached."
+            assert "no-store" in response.headers.get("Cache-Control", ""), "Private API responses must not be cached."
             raw = response.read()
             return json.loads(raw) if raw else None
 
@@ -111,6 +111,36 @@ def totp(secret):
 def latest_user(admin):
     page = admin.request("GET", "/api/admin/users?search=ci_person&page=0&size=20")
     return next(user for user in page["items"] if user["username"] == "ci_person")
+
+
+def assert_finance(person, admin):
+    empty = {"financing": None, "months": [], "missingMonths": []}
+    assert person.request("GET", "/api/finance") == empty
+    person.request("PUT", "/api/finance/financing", {
+        "version": None, "financedCents": 19_200_000, "releasedCents": 8_400_000,
+        "annualNominalRate": "7.5", "expectedDeliveryDate": "2027-12-31",
+        "trackingStartMonth": "2025-01", "subsidyCents": 1_000_000,
+    }, key=str(uuid.uuid4()))
+    month = {
+        "version": None, "caixaDueDate": "2025-03-10", "builderDueDate": None,
+        "caixaStatus": "PAID", "builderStatus": "NO_PAYMENT",
+        "releasedCents": 8_000_000, "insuranceCents": 3_500, "feesCents": 2_500,
+        "payments": [{"kind": "CAIXA", "paidOn": "2025-03-12", "paidCents": 50_000,
+                      "lateChargeCents": 700}],
+    }
+    key = str(uuid.uuid4())
+    path = "/api/finance/months/2025-03"
+    saved = person.request("PUT", path, month, key=key)
+    assert person.request("PUT", path, month, key=key) == saved
+    ledger = person.request("GET", "/api/finance")
+    assert ledger["financing"]["financedCents"] == 19_200_000
+    assert ledger["financing"]["subsidyCents"] == 1_000_000
+    assert ledger["missingMonths"] == ["2025-01", "2025-02"]
+    assert len(ledger["months"]) == 1
+    row = ledger["months"][0]
+    assert row["monthlyTotalCents"] == row["accumulatedPaidCents"] == 50_000
+    assert row["builderPaidCents"] == 0 and row["closed"]
+    assert admin.request("GET", "/api/finance") == empty
 
 
 def assert_events(compose):
@@ -175,6 +205,7 @@ def main():
     login = {"username": "ci_person", "password": person_password}
     assert person.request("POST", "/api/auth/login", login, expected=403)["code"] == "ACCOUNT_PENDING_APPROVAL"
     person.request("GET", "/api/auth/me", expected=401)
+    person.request("GET", "/api/finance", expected=401)
     user = latest_user(admin)
     assert user["status"] == "PENDING_APPROVAL" and not user["mustChangePassword"]
     assert user["email"] == registration["email"]
@@ -183,6 +214,7 @@ def main():
     assert approved["status"] == "ACTIVE" and not approved["mustChangePassword"]
     assert person.request("POST", "/api/auth/login", login)["stage"] == "AUTHENTICATED"
     person.request("GET", "/api/account")
+    assert_finance(person, admin)
     user = latest_user(admin)
     blocked = admin.request("POST", "/api/admin/users/" + user["id"] + "/block",
                             {"version": user["version"]}, key=str(uuid.uuid4()))
@@ -196,10 +228,11 @@ def main():
     person.request("GET", "/api/auth/me", expected=401)
     assert person.request("POST", "/api/auth/login", {"username": "ci_person", "password": replacement})["stage"] == "CHANGE_PASSWORD"
     person.request("GET", "/api/account", expected=403)
+    person.request("GET", "/api/finance", expected=403)
     assert person.request("POST", "/api/auth/change-password", {"currentPassword": replacement,
         "newPassword": secrets.token_urlsafe(18)})["stage"] == "AUTHENTICATED"
     assert_events(compose)
-    print("HTTPS registration, approval, password reset, CSRF, MFA, revocation, idempotency and Kafka passed.")
+    print("HTTPS registration, approval, password reset, CSRF, MFA, revocation, financing, idempotency and Kafka passed.")
 
 
 if __name__ == "__main__":
