@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /** Internal persistence model. Never returned directly from HTTP endpoints. */
-public record Account(UUID id, String username, String displayName, String passwordHash,
+public record Account(UUID id, String username, String displayName, String email, String passwordHash,
         String role, String status, boolean mustChangePassword, long authVersion, long version,
         String totpSecret, String totpPendingSecret, Instant totpPendingUntil,
         long totpLastCounter, Instant createdAt) {

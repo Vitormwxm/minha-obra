@@ -1,8 +1,9 @@
 # Contas e acesso — entrega atual
 
-A pessoa solicita a conta com nome, usuário e uma senha escolhida por ela.
+A pessoa solicita a conta com nome, e-mail, usuário e uma senha escolhida por ela.
 O acesso fica pendente até a aprovação de um administrador. Depois disso,
-ela entra com a senha que escolheu. O fluxo desta etapa dispensa e-mail.
+ela entra com o usuário e a senha que escolheu. O endereço serve como contato
+no painel de aprovação. Contas anteriores podem ter o campo vazio.
 
 Quando precisar redefinir uma senha, o administrador entrega uma senha
 provisória à pessoa. No próximo acesso, o app exige a troca dessa senha.
@@ -12,7 +13,7 @@ provisória à pessoa. No próximo acesso, o app exige a troca dessa senha.
 API JSON em `/api`, erros `{code,message,fieldErrors?}` e Cache-Control no-store.
 IDs UUID; datas ISO-8601 UTC; username normalizado, único, 3–40 caracteres
 ASCII minúsculos, números, ponto, hífen ou sublinhado. Nome 2–120 caracteres.
-Conta `{id,username,displayName,role,status,mustChangePassword,version,createdAt}`.
+Conta `{id,username,displayName,email,role,status,mustChangePassword,version,createdAt}`.
 Role ADMIN/USER; status PENDING_APPROVAL/ACTIVE/BLOCKED. Nenhum hash, segredo MFA ou senha em DTO
 de conta, logs, eventos, URL ou armazenamento do navegador.
 
@@ -20,7 +21,7 @@ Sessão `{user: conta,stage}`. Stage CHANGE_PASSWORD, MFA_SETUP, MFA_VERIFY ou
 AUTHENTICATED. Não há acesso administrativo/de negócio antes da etapa final.
 
 - GET `/auth/csrf` → `{token,headerName}`; XSRF-TOKEN cookie e X-XSRF-TOKEN header.
-- POST `/auth/register` `{username,displayName,password}` → 201 `{status:"PENDING_APPROVAL"}`, sem sessão.
+- POST `/auth/register` `{username,displayName,email,password}` → 201 `{status:"PENDING_APPROVAL"}`, sem sessão.
 - POST `/auth/login` `{username,password}` → sessão. Com senha válida, conta pendente recebe 403 `ACCOUNT_PENDING_APPROVAL`.
 - GET `/auth/me` → sessão; 401 sem sessão.
 - POST `/auth/change-password` `{currentPassword,newPassword}` → sessão rotacionada.

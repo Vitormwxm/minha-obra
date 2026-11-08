@@ -24,7 +24,7 @@ public class AccountRepository {
     private static Account map(ResultSet r, int row) throws SQLException {
         var pending = r.getTimestamp("totp_pending_until");
         return new Account(r.getObject("id", UUID.class), r.getString("username"), r.getString("display_name"),
-                r.getString("password_hash"), r.getString("role"), r.getString("status"),
+                r.getString("email"), r.getString("password_hash"), r.getString("role"), r.getString("status"),
                 r.getBoolean("must_change_password"),
                 r.getLong("auth_version"), r.getLong("version"), r.getString("totp_secret"),
                 r.getString("totp_pending_secret"),
@@ -67,10 +67,10 @@ public class AccountRepository {
         return byId(id).orElseThrow();
     }
 
-    public boolean insertRequest(UUID id, String username, String displayName, String hash) {
+    public boolean insertRequest(UUID id, String username, String displayName, String email, String hash) {
         return jdbc.update(
-                "INSERT INTO app_account(id,username,display_name,password_hash,role,status,must_change_password) VALUES (?,?,?,?,'USER','PENDING_APPROVAL',FALSE) ON CONFLICT (username) DO NOTHING",
-                id, username, displayName, hash) == 1;
+                "INSERT INTO app_account(id,username,display_name,email,password_hash,role,status,must_change_password) VALUES (?,?,?,?,?,'USER','PENDING_APPROVAL',FALSE) ON CONFLICT (username) DO NOTHING",
+                id, username, displayName, email, hash) == 1;
     }
 
     public Accounts.Page page(int page, int size, String search) {

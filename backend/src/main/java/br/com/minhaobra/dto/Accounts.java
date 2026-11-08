@@ -10,11 +10,16 @@ public final class Accounts {
     private Accounts() {
     }
 
-    public record User(UUID id, String username, String displayName, String role, String status,
+    public record User(UUID id, String username, String displayName, String email, String role, String status,
             boolean mustChangePassword, long version, Instant createdAt) {
         public static User from(Account a) {
-            return new User(a.id(), a.username(), a.displayName(), a.role(), a.status(), a.mustChangePassword(),
+            return new User(a.id(), a.username(), a.displayName(), a.email(), a.role(), a.status(), a.mustChangePassword(),
                     a.version(), a.createdAt());
+        }
+
+        @Override
+        public String toString() {
+            return "User[id=" + id + ",role=" + role + ",status=" + status + "]";
         }
     }
 
@@ -41,7 +46,12 @@ public final class Accounts {
 
     public record Register(@NotBlank @Size(min = 3, max = 40) String username,
             @NotBlank @Size(min = 2, max = 120) String displayName,
+            @NotBlank @Email @Size(max = 254) String email,
             @NotNull @Size(min = 12, max = 72) String password) {
+        public Register {
+            email = email == null ? null : email.strip();
+        }
+
         @Override
         public String toString() {
             return "Register[redacted]";

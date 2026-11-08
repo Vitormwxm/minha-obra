@@ -34,6 +34,7 @@ class AccountsIT {
     private static final String SCHEMA="it_accounts_"+UUID.randomUUID().toString().replace("-","");
     private static final String TEMP="Temporary-Access-2026!";
     private static final String NORMAL="My-New-Password-2026!";
+    private static final String EMAIL = "Pessoa+contato@example.test";
     @Autowired JdbcTemplate jdbc;
     @Autowired AccountRepository accounts;
     @Autowired PasswordEncoder passwords;
@@ -65,7 +66,7 @@ class AccountsIT {
     @Test void csrfIsRequiredForLoginAndRegistrationAndInvalidCredentialsStayGeneric() throws Exception {
         Browser browser=new Browser();browser.csrf();
         assertEquals(403,browser.post("/api/auth/login",Map.of("username","someone","password",TEMP),false,null).statusCode());
-        var request = Map.of("username", "someone", "displayName", "Pessoa de teste", "password", NORMAL);
+        var request = Map.of("username", "someone", "displayName", "Pessoa de teste", "email", EMAIL, "password", NORMAL);
         assertEquals(403, browser.post("/api/auth/register", request, false, UUID.randomUUID()).statusCode());
         assertEquals(400, browser.post("/api/auth/register", request, true, null).statusCode());
         assertTrue(accounts.byUsername("someone").isEmpty());
@@ -74,6 +75,24 @@ class AccountsIT {
         var wrong=browser.post("/api/auth/login",Map.of("username","existing","password","Wrong-Password-2026!"));
         assertEquals(401,missing.statusCode());assertEquals(missing.body(),wrong.body());
         assertTrue(missing.headers().firstValue("Cache-Control").orElse("").contains("no-store"));
+    }
+
+    @Test void registrationRejectsMissingOrInvalidEmailWithoutEchoingIt() throws Exception {
+        Browser applicant = new Browser();
+        Map<String, Object> body = new HashMap<>(Map.of("username", "requested", "displayName", "Pessoa de teste", "password", NORMAL));
+        var missing = applicant.post("/api/auth/register", body, true, UUID.randomUUID());
+        assertEquals(400, missing.statusCode());
+        assertEquals("Confira este campo.", JsonPath.read(missing.body(), "$.fieldErrors.email"));
+        String oversized = "a".repeat(64) + "@" + "b".repeat(63) + "." + "c".repeat(63) + "." + "d".repeat(62);
+        for (String email : List.of("   ", "incorreto@@example.test", oversized)) {
+            body.put("email", email);
+            var invalid = applicant.post("/api/auth/register", body, true, UUID.randomUUID());
+            assertEquals(400, invalid.statusCode());
+            assertEquals("Confira este campo.", JsonPath.read(invalid.body(), "$.fieldErrors.email"));
+            if (!email.isBlank())
+                assertFalse(invalid.body().contains(email));
+        }
+        assertTrue(accounts.byUsername("requested").isEmpty());
     }
 
     @Test void temporaryPasswordRestrictsBusinessAndRotatesSessionAfterChange() throws Exception {
@@ -131,12 +150,13 @@ class AccountsIT {
     @Test void registrationIsIdempotentAndNeverStoresPlaintextInEventsOrResults() throws Exception {
         Browser applicant = new Browser();
         UUID key = UUID.randomUUID();
-        var body = Map.of("username", "New_Person", "displayName", "Pessoa Nova", "password", NORMAL,
-                "role", "ADMIN", "status", "ACTIVE", "mustChangePassword", true);
+        var body = Map.of("username", "New_Person", "displayName", "Pessoa Nova", "email", "  " + EMAIL + "  ",
+                "password", NORMAL, "role", "ADMIN", "status", "ACTIVE", "mustChangePassword", true);
+        var normalizedBody = Map.of("username", "new_person", "displayName", "Pessoa Nova", "email", EMAIL, "password", NORMAL);
         HttpResponse<String> created;
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             var first = executor.submit(() -> applicant.post("/api/auth/register", body, true, key));
-            var second = executor.submit(() -> new Browser().post("/api/auth/register", body, true, key));
+            var second = executor.submit(() -> new Browser().post("/api/auth/register", normalizedBody, true, key));
             created = first.get(15, TimeUnit.SECONDS);
             var repeated = second.get(15, TimeUnit.SECONDS);
             assertEquals(201, created.statusCode());
@@ -146,16 +166,22 @@ class AccountsIT {
         assertEquals(Map.of("status", "PENDING_APPROVAL"), JsonPath.read(created.body(), "$"));
         assertEquals(401, applicant.get("/api/auth/me").statusCode());
         assertTrue(applicant.cookies.getCookieStore().getCookies().stream().noneMatch(c -> c.getName().equals("MINHAOBRA_SESSION")));
-        var modifiedPassword = Map.of("username", "new_person", "displayName", "Pessoa Nova", "password", TEMP);
-        var modifiedName = Map.of("username", "other_person", "displayName", "Pessoa Nova", "password", NORMAL);
+        var modifiedPassword = Map.of("username", "new_person", "displayName", "Pessoa Nova", "email", EMAIL, "password", TEMP);
+        var modifiedName = Map.of("username", "other_person", "displayName", "Pessoa Nova", "email", EMAIL, "password", NORMAL);
         var passwordConflict = applicant.post("/api/auth/register", modifiedPassword, true, key);
         assertEquals(409, passwordConflict.statusCode());
         assertEquals("IDEMPOTENCY_CONFLICT", JsonPath.read(passwordConflict.body(), "$.code"));
         var nameConflict = applicant.post("/api/auth/register", modifiedName, true, key);
         assertEquals(409, nameConflict.statusCode());
         assertEquals("IDEMPOTENCY_CONFLICT", JsonPath.read(nameConflict.body(), "$.code"));
+        var modifiedEmail = new HashMap<>(normalizedBody);
+        modifiedEmail.put("email", "outro@example.test");
+        var emailConflict = applicant.post("/api/auth/register", modifiedEmail, true, key);
+        assertEquals(409, emailConflict.statusCode());
+        assertEquals("IDEMPOTENCY_CONFLICT", JsonPath.read(emailConflict.body(), "$.code"));
         assertEquals(409, applicant.post("/api/auth/register", modifiedPassword, true, UUID.randomUUID()).statusCode());
         var account = accounts.byUsername("new_person").orElseThrow();
+        assertEquals(EMAIL, account.email());
         assertEquals("USER", account.role());
         assertTrue(account.isPendingApproval());
         assertFalse(account.mustChangePassword());
@@ -164,12 +190,13 @@ class AccountsIT {
         assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM account_audit WHERE event_type='ACCOUNT_REQUESTED'", Integer.class));
         for(String value:jdbc.queryForList("SELECT payload FROM account_outbox UNION ALL SELECT response_json FROM account_idempotency",String.class)) {
             assertFalse(value.contains(TEMP));assertFalse(value.contains(NORMAL));assertFalse(value.contains("password_hash"));
+            assertFalse(value.contains(EMAIL));
         }
     }
 
     @Test void onlyAdministratorApprovalUnlocksTheApplicantsChosenPassword() throws Exception {
         Browser applicant = new Browser();
-        var body = Map.of("username", "requested", "displayName", "Pessoa Solicitante", "password", NORMAL);
+        var body = Map.of("username", "requested", "displayName", "Pessoa Solicitante", "email", EMAIL, "password", NORMAL);
         assertEquals(201, applicant.post("/api/auth/register", body, true, UUID.randomUUID()).statusCode());
         var account = accounts.byUsername("requested").orElseThrow();
         UUID target = account.id();
@@ -178,6 +205,7 @@ class AccountsIT {
         var pendingLogin = applicant.login("requested", NORMAL);
         assertEquals(403, pendingLogin.statusCode());
         assertEquals("ACCOUNT_PENDING_APPROVAL", JsonPath.read(pendingLogin.body(), "$.code"));
+        assertFalse(pendingLogin.body().contains(EMAIL));
         assertEquals(401, applicant.get("/api/auth/me").statusCode());
         var wrong = applicant.login("requested", TEMP);
         assertEquals(401, wrong.statusCode());
@@ -187,12 +215,14 @@ class AccountsIT {
         insert("other", "USER", false, NORMAL);
         Browser ordinary = new Browser();
         assertStage(ordinary.login("other", NORMAL), "AUTHENTICATED");
+        assertNull(JsonPath.read(ordinary.get("/api/account").body(), "$.email"));
         assertEquals(403, ordinary.post(path + "/approve", version, true, UUID.randomUUID()).statusCode());
         Browser administrator = admin();
         var page = administrator.get("/api/admin/users");
         assertEquals(200, page.statusCode());
         assertEquals("requested", JsonPath.read(page.body(), "$.items[0].username"));
         assertEquals("PENDING_APPROVAL", JsonPath.read(page.body(), "$.items[0].status"));
+        assertEquals(EMAIL, JsonPath.read(page.body(), "$.items[0].email"));
         assertEquals("requested", JsonPath.read(administrator.get("/api/admin/users?search=solicitante").body(), "$.items[0].username"));
         for (String action : List.of("/block", "/unblock")) {
             assertEquals(409, administrator.post(path + action, version, true, UUID.randomUUID()).statusCode());
@@ -207,11 +237,14 @@ class AccountsIT {
         var approved = administrator.post(path + "/approve", version, true, approvalKey);
         assertEquals(200, approved.statusCode());
         assertEquals("ACTIVE", JsonPath.read(approved.body(), "$.status"));
+        assertEquals(EMAIL, JsonPath.read(approved.body(), "$.email"));
         assertEquals(Boolean.FALSE, JsonPath.read(approved.body(), "$.mustChangePassword"));
         assertEquals(approved.body(), administrator.post(path + "/approve", version, true, approvalKey).body());
         assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM account_audit WHERE event_type='ACCOUNT_APPROVED'", Integer.class));
         assertStage(applicant.login("requested", NORMAL), "AUTHENTICATED");
-        assertEquals(200, applicant.get("/api/account").statusCode());
+        var ownAccount = applicant.get("/api/account");
+        assertEquals(200, ownAccount.statusCode());
+        assertEquals(EMAIL, JsonPath.read(ownAccount.body(), "$.email"));
     }
 
     @Test void anOutboxFailureRollsBackAccountAuditAndIdempotencyTogether() {
@@ -221,7 +254,7 @@ class AccountsIT {
         jdbc.execute("CREATE TRIGGER reject_account_outbox BEFORE INSERT ON account_outbox FOR EACH ROW EXECUTE FUNCTION reject_account_outbox()");
         try {
             assertThrows(org.springframework.dao.DataAccessException.class, () -> accountService.register(key,
-                    new Accounts.Register("rollback_person", "Pessoa de teste", NORMAL)));
+                    new Accounts.Register("rollback_person", "Pessoa de teste", EMAIL, NORMAL)));
             assertTrue(accounts.byUsername("rollback_person").isEmpty());
             assertEquals(before,jdbc.queryForObject("SELECT count(*) FROM account_audit",Long.class));
             assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM account_idempotency WHERE request_key=?",Integer.class,key));

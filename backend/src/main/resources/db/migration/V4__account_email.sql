@@ -1,0 +1,1 @@
+ALTER TABLE app_account ADD COLUMN email VARCHAR(254);
