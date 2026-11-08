@@ -2,6 +2,7 @@ export interface Account {
   id: string;
   username: string;
   displayName: string;
+  email: string | null;
   role: 'ADMIN' | 'USER';
   status: 'ACTIVE' | 'BLOCKED' | 'PENDING_APPROVAL';
   mustChangePassword: boolean;
@@ -34,6 +35,7 @@ export interface MfaConfirmation {
 export interface AccountRequest {
   username: string;
   displayName: string;
+  email: string;
   password: string;
 }
 

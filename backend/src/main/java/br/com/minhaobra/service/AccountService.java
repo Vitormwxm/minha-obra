@@ -118,7 +118,7 @@ public class AccountService {
         if (name.length() < 2 || name.length() > 120 || name.codePoints().anyMatch(Character::isISOControl))
             throw new ApiException(400, "INVALID_NAME", "Informe um nome de 2 a 120 caracteres.");
         PasswordPolicy.validate(request.password());
-        String fingerprint = crypto.fingerprint("register", canonical(username, name, request.password()));
+        String fingerprint = crypto.fingerprint("register", canonical(username, name, request.email(), request.password()));
         repository.requestLock("register-key:" + requestKey);
         var cached = repository.cachedRegistration(requestKey);
         if (cached.isPresent())
@@ -129,7 +129,7 @@ public class AccountService {
             throw unavailableUsername();
         String hash = limits.hash(() -> passwords.encode(request.password()));
         UUID id = UUID.randomUUID();
-        if (!repository.insertRequest(id, username, name, hash))
+        if (!repository.insertRequest(id, username, name, request.email(), hash))
             throw unavailableUsername();
         repository.event(id, id, "ACCOUNT_REQUESTED");
         Accounts.Registration result = new Accounts.Registration("PENDING_APPROVAL");

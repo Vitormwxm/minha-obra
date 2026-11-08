@@ -165,7 +165,8 @@ def main():
     assert confirmed["session"]["stage"] == "AUTHENTICATED" and len(confirmed["recoveryCodes"]) >= 8
     person = Client(origin, context)
     person_password = secrets.token_urlsafe(18)
-    registration = {"username": "ci_person", "displayName": "Pessoa de teste CI", "password": person_password}
+    registration = {"username": "ci_person", "displayName": "Pessoa de teste CI",
+                    "email": "ci-person@example.com", "password": person_password}
     key = str(uuid.uuid4())
     person.request("POST", "/api/auth/register", registration, expected=403, key=key, csrf=False)
     pending = person.request("POST", "/api/auth/register", registration, expected=201, key=key)
@@ -176,6 +177,7 @@ def main():
     person.request("GET", "/api/auth/me", expected=401)
     user = latest_user(admin)
     assert user["status"] == "PENDING_APPROVAL" and not user["mustChangePassword"]
+    assert user["email"] == registration["email"]
     approved = admin.request("POST", "/api/admin/users/" + user["id"] + "/approve",
                              {"version": user["version"]}, key=str(uuid.uuid4()))
     assert approved["status"] == "ACTIVE" and not approved["mustChangePassword"]

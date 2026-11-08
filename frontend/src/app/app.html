@@ -38,6 +38,10 @@
               <input id="registration-name" formControlName="displayName" autocomplete="name" maxlength="120" [attr.aria-invalid]="registrationForm.controls.displayName.touched && registrationForm.controls.displayName.invalid" />
             </div>
             <div class="field">
+              <label for="registration-email">E-mail</label>
+              <input id="registration-email" formControlName="email" type="email" autocomplete="email" autocapitalize="none" spellcheck="false" maxlength="254" required [attr.aria-invalid]="registrationForm.controls.email.touched && registrationForm.controls.email.invalid" />
+            </div>
+            <div class="field">
               <label for="registration-username">Usuário</label>
               <input id="registration-username" formControlName="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="40" aria-describedby="registration-username-help" [attr.aria-invalid]="registrationForm.controls.username.touched && registrationForm.controls.username.invalid" />
               <small id="registration-username-help">De 3 a 40 caracteres. Comece com letra ou número. Você pode usar pontos, hífens e sublinhados.</small>

@@ -25,7 +25,11 @@
             <li class="account-row">
               <div class="person">
                 <span class="avatar" aria-hidden="true">{{ account.displayName.charAt(0).toUpperCase() }}</span>
-                <div><h2>{{ account.displayName }} @if (account.id === currentUser().id) { <span class="you">você</span> }</h2><p>{{ account.username }}</p></div>
+                <div>
+                  <h2>{{ account.displayName }} @if (account.id === currentUser().id) { <span class="you">você</span> }</h2>
+                  <p>{{ account.username }}</p>
+                  <p>{{ account.email ?? 'E-mail não informado' }}</p>
+                </div>
               </div>
               <div class="account-access">
                 <span class="status-tag" [class.active]="account.status === 'ACTIVE'" [class.blocked]="account.status === 'BLOCKED'" [class.pending]="account.status === 'PENDING_APPROVAL'">
@@ -71,7 +75,11 @@
   @if (dialog(); as state) {
     <div class="dialog-top"><span class="eyebrow">PESSOAS E ACESSOS</span><button type="button" class="close-dialog" (click)="closeDialog()" [disabled]="busy()" aria-label="Fechar">×</button></div>
     <h2 id="dialog-title">{{ state.kind === 'approve' ? 'Aprovar esta conta?' : state.kind === 'reset' ? 'Defina uma senha provisória.' : state.kind === 'block' ? 'Bloquear esta conta?' : 'Desbloquear esta conta?' }}</h2>
-    <p class="dialog-person"><strong>{{ state.account.displayName }}</strong><span>{{ state.account.username }}</span></p>
+    <p class="dialog-person">
+      <strong>{{ state.account.displayName }}</strong>
+      <span>{{ state.account.username }}</span>
+      @if (state.kind === 'approve') { <span>{{ state.account.email ?? 'E-mail não informado' }}</span> }
+    </p>
     @if (dialogMessage()) { <div class="alert error" role="alert"><p>{{ dialogMessage() }}</p></div> }
     <form [formGroup]="accountForm" (ngSubmit)="submit()" [attr.aria-busy]="busy()">
       @if (state.kind === 'approve') {

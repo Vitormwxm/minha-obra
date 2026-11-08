@@ -39,6 +39,7 @@ export class App implements OnInit {
   });
   readonly registrationForm = this.forms.group({
     displayName: ['', [Validators.required, Validators.maxLength(120)]],
+    email: ['', [Validators.required, Validators.email, Validators.maxLength(254)]],
     username: ['', [Validators.required, Validators.maxLength(40)]],
     password: ['', Validators.required],
     confirmPassword: ['', Validators.required],
@@ -107,9 +108,16 @@ export class App implements OnInit {
     this.registrationForm.markAllAsTouched();
     const values = this.registrationForm.getRawValue();
     const displayName = values.displayName.trim();
+    const email = values.email.trim();
     const username = normalizedUsername(values.username);
     if (displayName.length < 2 || displayName.length > 120) {
       this.message.set('Informe um nome de 2 a 120 caracteres.');
+      return;
+    }
+    const emailControl = this.registrationForm.controls.email;
+    emailControl.setValue(email);
+    if (emailControl.invalid) {
+      this.message.set('Informe um e-mail válido de até 254 caracteres.');
       return;
     }
     if (!validUsername(username)) {
@@ -123,7 +131,7 @@ export class App implements OnInit {
     }
     this.begin();
     try {
-      const payload = { displayName, username, password: values.password };
+      const payload = { displayName, email, username, password: values.password };
       const key = await this.registrationKey.forPayload('request-account', payload);
       await this.api.register(payload, key);
       this.setAccessPage('requested');
