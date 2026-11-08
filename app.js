@@ -4,7 +4,7 @@
   const $ = id => document.getElementById(id);
   const calculator = globalThis.ObraCalculator;
   const numberFields = ['balance', 'targetBalance', 'annualRate', 'trRate', 'insurance', 'fee', 'remainingRelease'];
-  const textFields = ['startMonth', 'endMonth', 'releaseMode', 'releaseTiming'];
+  const textFields = ['startMonth', 'endMonth', 'releaseTiming'];
   const fieldNames = { balance: 'Saldo devedor atual', targetBalance: 'Saldo final do financiamento', annualRate: 'Juros nominais', trRate: 'TR mensal', insurance: 'Seguro mensal', fee: 'Taxas mensais', remainingRelease: 'Valor ainda a liberar', startMonth: 'Primeiro mês', endMonth: 'Entrega da obra', releaseMode: 'Liberações', releaseTiming: 'Momento da liberação', monthlyOverrides: 'Ajustes mensais' };
   const storageKey = 'minha-obra.simulacao.v1';
   const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -60,10 +60,19 @@
   document.querySelectorAll('button[data-screen]').forEach(button => {
     button.addEventListener('click', () => showScreen(button.dataset.screen));
   });
+  function getReleaseMode() {
+    const checked = document.querySelector('input[name="releaseMode"]:checked');
+    return checked ? checked.value : 'equal';
+  }
+  function setReleaseMode(value) {
+    const radio = document.querySelector(`input[name="releaseMode"][value="${value}"]`);
+    if (radio) radio.checked = true;
+  }
   function readInput() {
     const input = {};
     for (const id of numberFields) input[id] = parseNumber($(id).value, $(id).dataset.kind);
     for (const id of textFields) input[id] = $(id).value;
+    input.releaseMode = getReleaseMode();
     input.remainingRelease = (Math.round(input.targetBalance * 100) - Math.round(input.balance * 100)) / 100;
     const months = new Set(safeMonths());
     input.monthlyOverrides = [...overrides].filter(([month]) => months.has(month)).map(([month, values]) => {
@@ -292,6 +301,7 @@
     loading = true;
     for (const id of numberFields) $(id).value = $(id).dataset.kind === 'rate' ? String(input[id]).replace('.', ',') : moneyInput.format(input[id]);
     for (const id of textFields) $(id).value = input[id];
+    setReleaseMode(input.releaseMode || 'equal');
     overrides = new Map((input.monthlyOverrides || []).map(row => [row.month,
       Object.fromEntries(Object.entries(row).filter(([key]) => key !== 'month').map(([key, value]) => [key, key === 'trRate' ? String(value).replace('.', ',') : moneyInput.format(value)]))]));
     renderEditor(); loading = false; refresh();
@@ -307,7 +317,7 @@
     clearTimeout(refreshTimer); $('simulation-form').reset();
     for (const id of numberFields) $(id).value = id === 'targetBalance' ? '192.000,00' : '';
     $('startMonth').value = currentMonth(); $('endMonth').value = offsetMonth(currentMonth(), 11);
-    $('releaseMode').value = 'equal'; $('releaseTiming').value = 'end'; $('remember-data').checked = false;
+    setReleaseMode('equal'); $('releaseTiming').value = 'end'; $('remember-data').checked = false;
     overrides.clear();
     try { localStorage.removeItem(storageKey); } catch { /* Storage can be disabled. */ }
     clearErrors(); invalidate(); renderEditor(); setStatus('Campos e dados salvos neste aparelho foram limpos.');
@@ -319,11 +329,19 @@
     $(id).addEventListener('input', () => {
       if (loading) return;
       invalidate(); clearTimeout(refreshTimer); clearErrors();
-      if (['startMonth', 'endMonth', 'releaseMode'].includes(id)) renderEditor();
+      if (['startMonth', 'endMonth'].includes(id)) renderEditor();
       else updateReleaseHint();
       refreshTimer = setTimeout(() => { if (numberFields.filter(key => key !== 'remainingRelease').every(key => $(key).value.trim())) refresh(); }, 350);
     });
   }
+  document.querySelectorAll('input[name="releaseMode"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      if (loading) return;
+      invalidate(); clearTimeout(refreshTimer); clearErrors();
+      renderEditor();
+      refreshTimer = setTimeout(() => { if (numberFields.filter(key => key !== 'remainingRelease').every(key => $(key).value.trim())) refresh(); }, 350);
+    });
+  });
   $('monthly-inputs').addEventListener('input', event => {
     const input = event.target;
     if (!input.dataset.month) return;
