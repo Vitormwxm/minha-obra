@@ -293,6 +293,7 @@
           </dl>
         </div>
         @if (result.rows.length) {
+          <app-projection-chart [rows]="result.rows"></app-projection-chart>
           <p id="projection-ledger-help" class="muted">A simulação distribui a liberação restante entre os meses até atingir o valor final do financiamento. A última liberação ajusta os centavos. A TR e os juros usam o saldo do início do mês. Seguro, taxas, TR e juros são estimados antes de descontar os pagamentos à CAIXA. O traço indica um valor indisponível.</p>
           <div class="ledger-scroll" role="region" aria-label="Projeção mensal de evolução de obra" tabindex="0">
             <table class="ledger" role="table" aria-describedby="projection-ledger-help">

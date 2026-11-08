@@ -1,0 +1,36 @@
+<figure aria-labelledby="projection-chart-title" aria-describedby="projection-chart-help">
+  <figcaption>
+    <h3 id="projection-chart-title">Seu pagamento, mês a mês</h3>
+    <p id="projection-chart-help">Valor estimado a pagar à CAIXA. A barra listrada indica um subtotal mínimo quando faltam dados. Os valores por mês estão na tabela abaixo.</p>
+  </figcaption>
+
+  <div class="projection-chart-scroll" role="region" aria-label="Gráfico mensal rolável" tabindex="0">
+    <ul class="projection-chart-bars" aria-hidden="true">
+      @for (bar of bars(); track bar.month) {
+        <li>
+          <div class="projection-chart-amount">
+            @if (bar.amount !== null) {
+              <strong>{{ bar.amount }}</strong>
+              @if (bar.settled) {
+                <small>Encerrado</small>
+              } @else if (bar.minimum) {
+                <small>Mínimo</small>
+              }
+            } @else {
+              <small>Sem estimativa</small>
+            }
+          </div>
+          <div class="projection-chart-track">
+            @if (bar.height > 0) {
+              <div class="projection-bar" [class.projection-bar--minimum]="bar.minimum" [style.height.%]="bar.height"></div>
+            }
+          </div>
+          <time [attr.datetime]="bar.month">{{ bar.label }}</time>
+        </li>
+      }
+    </ul>
+  </div>
+  @if (bars().length > 1) {
+    <p class="projection-chart-hint">Em telas menores, deslize o gráfico para percorrer os meses.</p>
+  }
+</figure>

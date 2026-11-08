@@ -1,0 +1,98 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+figure {
+  margin: 20px 0;
+  padding: clamp(12px, 2.5vw, 20px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #f7faf7;
+}
+
+h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+figcaption p,
+.projection-chart-hint {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.projection-chart-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.projection-chart-scroll:focus-visible {
+  outline-offset: 1px;
+}
+
+.projection-chart-bars {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(124px, 1fr);
+  margin: 0;
+  padding: 0 0 4px;
+  list-style: none;
+}
+
+.projection-chart-bars li {
+  display: grid;
+  grid-template-rows: 48px 136px auto;
+  min-width: 0;
+  text-align: center;
+}
+
+.projection-chart-amount {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 4px 4px 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.projection-chart-amount small,
+time {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.projection-chart-track {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  border-bottom: 1px solid #a8beb1;
+  background: repeating-linear-gradient(to top, transparent 0 calc(25% - 1px), var(--border) calc(25% - 1px) 25%);
+}
+
+.projection-bar {
+  width: 42%;
+  max-width: 44px;
+  border-radius: 6px 6px 0 0;
+  background: #087f72;
+}
+
+.projection-bar--minimum {
+  border: 1px solid #547568;
+  background: repeating-linear-gradient(135deg, #d1e2d8 0 4px, #91b3a4 4px 8px);
+}
+
+time {
+  display: block;
+  padding-top: 6px;
+}
+
+.projection-chart-hint {
+  margin: 8px 0 0;
+}
