@@ -1,0 +1,54 @@
+<section class="deletion" aria-labelledby="account-deletion-title" [attr.aria-busy]="busy()">
+  <span class="eyebrow">MINHA CONTA</span>
+  <h1 id="account-deletion-title" tabindex="-1">Exclusão da conta</h1>
+  <p class="deletion-lead">Você pode solicitar a exclusão da conta e dos dados vinculados. Um administrador analisa o pedido antes de excluir.</p>
+
+  @if (error()) {
+    <div class="alert error" role="alert"><p>{{ error() }}</p></div>
+  }
+  @if (notice()) {
+    <div class="alert success" role="status"><p>{{ notice() }}</p></div>
+  }
+
+  <article class="deletion-panel">
+    <h2>Histórico de pagamentos</h2>
+    <p>Guarde uma cópia dos lançamentos antes de concluir a exclusão.</p>
+    @if (webDownloads()) {
+      <div class="deletion-actions">
+        <button class="secondary-button" type="button" (click)="download('summary')" [disabled]="busy()">Baixar resumo mensal (CSV)</button>
+        <button class="secondary-button" type="button" (click)="download('payments')" [disabled]="busy()">Baixar pagamentos (CSV)</button>
+      </div>
+    } @else {
+      <p class="inline-note">Acesse a versão web do Minha Obra para baixar seu histórico.</p>
+    }
+  </article>
+
+  <article class="deletion-panel">
+    @if (state(); as current) {
+      @if (current.request; as request) {
+        <span class="status-tag pending">Aguardando análise</span>
+        <h2>Exclusão solicitada</h2>
+        <p>Enviada em {{ request.requestedAt | date:'dd/MM/yyyy HH:mm' }}. Enquanto aguarda, você pode consultar e baixar seu histórico. Novos lançamentos e alterações ficam suspensos.</p>
+        <div class="deletion-actions">
+          <button class="secondary-button" type="button" (click)="cancel()" [disabled]="busy()">Cancelar solicitação</button>
+          <button class="text-button" type="button" (click)="load()" [disabled]="busy()">Atualizar situação</button>
+        </div>
+      } @else if (confirming()) {
+        <h2 id="confirm-deletion-title" tabindex="-1">Enviar solicitação de exclusão?</h2>
+        <p>Após a aprovação, sua conta, o financiamento e os pagamentos serão removidos da base ativa. Você poderá cancelar até a aprovação.</p>
+        <div class="deletion-actions">
+          <button class="secondary-button" type="button" (click)="confirm(false)" [disabled]="busy()">Voltar</button>
+          <button class="primary-button deletion-danger" type="button" (click)="request()" [disabled]="busy()">Confirmar solicitação</button>
+        </div>
+      } @else {
+        <h2>Solicitar exclusão</h2>
+        <p>Depois da aprovação, o histórico deixa de estar disponível na sua conta.</p>
+        <button class="secondary-button deletion-link" id="start-deletion" type="button" (click)="confirm(true)" [disabled]="busy()">Solicitar exclusão</button>
+      }
+    } @else if (busy()) {
+      <p role="status">Consultando a situação da sua conta…</p>
+    } @else {
+      <button class="secondary-button" type="button" (click)="load()">Carregar situação</button>
+    }
+  </article>
+</section>

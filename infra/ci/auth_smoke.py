@@ -180,6 +180,39 @@ def assert_events(compose):
         "Account events must not contain credentials."
 
 
+def assert_deletion(person, admin):
+    path = "/api/account/deletion"
+    assert person.request("GET", path) == {"request": None}
+    admin.request("GET", path, expected=403)
+    person.request("GET", "/api/admin/deletions", expected=403)
+
+    request_key = str(uuid.uuid4())
+    first = person.request("POST", path, key=request_key)
+    assert person.request("POST", path, key=request_key) == first
+    old_id = first["request"]["id"]
+    ledger = person.request("GET", "/api/finance")
+    assert len(ledger["months"]) == 1
+    denied = person.request("DELETE", "/api/finance/months/2025-03",
+                            {"version": ledger["months"][0]["version"]}, key=str(uuid.uuid4()), expected=409)
+    assert denied["code"] == "ACCOUNT_DELETION_PENDING"
+    canceled = person.request("POST", path + "/cancel", {"requestId": old_id}, key=str(uuid.uuid4()))
+    assert canceled == {"request": None}
+
+    request_id = person.request("POST", path, key=str(uuid.uuid4()))["request"]["id"]
+    assert request_id != old_id
+    admin.request("POST", f"/api/admin/deletions/{old_id}/approve", key=str(uuid.uuid4()), expected=404)
+    pending = admin.request("GET", "/api/admin/deletions")
+    assert pending["total"] == 1 and pending["items"][0]["id"] == request_id
+    assert pending["items"][0]["username"] == "ci_person"
+    approval_key = str(uuid.uuid4())
+    target = f"/api/admin/deletions/{request_id}/approve"
+    admin.request("POST", target, key=approval_key, expected=204)
+    admin.request("POST", target, key=approval_key, expected=204)
+    person.request("GET", "/api/auth/me", expected=401)
+    assert admin.request("GET", "/api/admin/deletions")["items"] == []
+    assert admin.request("GET", "/api/admin/users?search=ci_person")["items"] == []
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--domain", required=True)
@@ -192,8 +225,9 @@ def main():
     compose = [args.compose, "-p", "minha-obra-ci", "--env-file", "/dev/null", "-f", args.file]
     context = ssl.create_default_context(cafile=args.ca)
     origin = "https://" + args.domain
-    provisional = secrets.token_urlsafe(18)
-    permanent = secrets.token_urlsafe(18)
+    provisional, permanent, person_password, replacement, new_password = (
+        f"{value:08d}" for value in secrets.SystemRandom().sample(range(100_000_000), 5)
+    )
     bootstrap(compose, provisional)
     admin = Client(origin, context)
     admin.request("POST", "/api/auth/login", {"username": "ci_admin", "password": provisional},
@@ -210,11 +244,13 @@ def main():
     confirmed = admin.request("POST", "/api/auth/mfa/confirm", {"code": totp(setup["secret"])})
     assert confirmed["session"]["stage"] == "AUTHENTICATED" and len(confirmed["recoveryCodes"]) >= 8
     person = Client(origin, context)
-    person_password = secrets.token_urlsafe(18)
     registration = {"username": "ci_person", "displayName": "Pessoa de teste CI",
                     "email": "ci-person@example.com", "password": person_password}
     key = str(uuid.uuid4())
     person.request("POST", "/api/auth/register", registration, expected=403, key=key, csrf=False)
+    invalid = person.request("POST", "/api/auth/register", {**registration, "password": "0123456x"},
+                             expected=400, key=key)
+    assert invalid["code"] == "PASSWORD_POLICY"
     pending = person.request("POST", "/api/auth/register", registration, expected=201, key=key)
     assert pending == {"status": "PENDING_APPROVAL"}
     assert person.request("POST", "/api/auth/register", registration, expected=201, key=key) == pending
@@ -238,7 +274,6 @@ def main():
     active = admin.request("POST", "/api/admin/users/" + user["id"] + "/unblock",
                            {"version": blocked["version"]}, key=str(uuid.uuid4()))
     assert person.request("POST", "/api/auth/login", {"username": "ci_person", "password": person_password})["stage"] == "AUTHENTICATED"
-    replacement = secrets.token_urlsafe(18)
     admin.request("POST", "/api/admin/users/" + user["id"] + "/temporary-password",
                    {"version": active["version"], "temporaryPassword": replacement}, key=str(uuid.uuid4()))
     person.request("GET", "/api/auth/me", expected=401)
@@ -246,9 +281,10 @@ def main():
     person.request("GET", "/api/account", expected=403)
     person.request("GET", "/api/finance", expected=403)
     assert person.request("POST", "/api/auth/change-password", {"currentPassword": replacement,
-        "newPassword": secrets.token_urlsafe(18)})["stage"] == "AUTHENTICATED"
+        "newPassword": new_password})["stage"] == "AUTHENTICATED"
     assert_events(compose)
-    print("HTTPS registration, approval, password reset, CSRF, MFA, revocation, financing, idempotency and Kafka passed.")
+    assert_deletion(person, admin)
+    print("HTTPS account lifecycle, password reset, CSRF, MFA, financing, deletion and Kafka passed.")
 
 
 if __name__ == "__main__":

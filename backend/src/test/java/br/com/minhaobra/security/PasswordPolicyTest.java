@@ -2,20 +2,23 @@ package br.com.minhaobra.security;
 
 import br.com.minhaobra.service.ApiException;
 import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class PasswordPolicyTest {
-    @Test void rejectsBlankPasswordsAndPasswordsBeyondBcryptsUtf8Limit() {
-        assertThrows(ApiException.class,()->PasswordPolicy.validate("            "));
-        assertThrows(ApiException.class,()->PasswordPolicy.validate("\t".repeat(12)));
-        assertThrows(ApiException.class,()->PasswordPolicy.validate("é".repeat(37)));
-        assertThrows(ApiException.class,()->PasswordPolicy.validate("a".repeat(65)));
-        assertThrows(ApiException.class,()->PasswordPolicy.validate("🔐".repeat(6)));
+    @Test void acceptsExactlyEightAsciiDigitsIncludingLeadingZeros() {
+        assertDoesNotThrow(() -> PasswordPolicy.validate("01234567"));
+        assertDoesNotThrow(() -> PasswordPolicy.validate("00000000"));
+        for (String value : new String[] {
+                null, "", "1234567", "123456789", "1234567x", " 01234567", "01234567\n", "１２３４５６７８"}) {
+            assertThrows(ApiException.class, () -> PasswordPolicy.validate(value));
+        }
     }
-    @Test void preservesLeadingSpacesAndAllowsUnicodeWithinTheExplicitLimits() {
-        assertDoesNotThrow(()->PasswordPolicy.validate("  Keep-these-spaces  "));
-        assertDoesNotThrow(()->PasswordPolicy.validate("é".repeat(36)));
-        assertDoesNotThrow(()->PasswordPolicy.validate("🔐".repeat(12)));
-        assertDoesNotThrow(()->PasswordPolicy.validate("a".repeat(59)+"🔐".repeat(3)));
+
+    @Test void preservesTheHashInputLimitForExistingPasswords() {
+        assertTrue(PasswordPolicy.validInputForHash("  Keep-these-spaces  "));
+        assertTrue(PasswordPolicy.validInputForHash("é".repeat(36)));
+        assertFalse(PasswordPolicy.validInputForHash("é".repeat(37)));
+        assertFalse(PasswordPolicy.validInputForHash(null));
     }
 }

@@ -32,8 +32,9 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT)
 class AccountsIT {
     private static final String SCHEMA="it_accounts_"+UUID.randomUUID().toString().replace("-","");
-    private static final String TEMP="Temporary-Access-2026!";
-    private static final String NORMAL="My-New-Password-2026!";
+    private static final String TEMP="07350491";
+    private static final String NORMAL="05192368";
+    private static final String LEGACY_TEMP="Temporary-Access-2026!";
     private static final String EMAIL = "Pessoa+contato@example.test";
     @Autowired JdbcTemplate jdbc;
     @Autowired AccountRepository accounts;
@@ -95,18 +96,19 @@ class AccountsIT {
         assertTrue(accounts.byUsername("requested").isEmpty());
     }
 
-    @Test void temporaryPasswordRestrictsBusinessAndRotatesSessionAfterChange() throws Exception {
-        UUID id=insert("person","USER",true,TEMP);
-        Browser browser=new Browser();var login=browser.login("person",TEMP);
+    @Test void aLegacyTemporaryPasswordAllowsSettingAnEightDigitPasswordAndRotatesSession() throws Exception {
+        UUID id=insert("person","USER",true,LEGACY_TEMP);
+        Browser browser=new Browser();var login=browser.login("person",LEGACY_TEMP);
         assertStage(login,"CHANGE_PASSWORD");String old=browser.sessionCookie();
         assertEquals(403,browser.get("/api/account").statusCode());
         assertEquals(403,browser.get("/api/admin/users").statusCode());
-        var changed=browser.post("/api/auth/change-password",Map.of("currentPassword",TEMP,"newPassword",NORMAL));
+        var changed=browser.post("/api/auth/change-password",Map.of("currentPassword",LEGACY_TEMP,"newPassword",NORMAL));
         assertStage(changed,"AUTHENTICATED");assertNotEquals(old,browser.sessionCookie());
         assertEquals(200,browser.get("/api/account").statusCode());
         assertEquals(403,browser.get("/api/admin/users").statusCode());
         assertTrue(passwords.matches(NORMAL,accounts.byId(id).orElseThrow().passwordHash()));
-        assertEquals(401,new Browser().login("person",TEMP).statusCode());
+        assertEquals(401,new Browser().login("person",LEGACY_TEMP).statusCode());
+        assertStage(new Browser().login("person",NORMAL),"AUTHENTICATED");
         var logout=browser.post("/api/auth/logout",Map.of());assertEquals(204,logout.statusCode());
         assertEquals(401,browser.get("/api/auth/me").statusCode());
     }
@@ -138,12 +140,12 @@ class AccountsIT {
     @Test void pendingMfaCannotChangeAnAdministratorsPasswordOrRevokeItsSessions() throws Exception {
         Browser legitimate=admin();var owner=accounts.byUsername("owner").orElseThrow();
         Browser pending=new Browser();assertStage(pending.login("owner",NORMAL),"MFA_VERIFY");
-        var denied=pending.post("/api/auth/change-password",Map.of("currentPassword",NORMAL,"newPassword","Final-New-Password2027!"));
+        var denied=pending.post("/api/auth/change-password",Map.of("currentPassword",NORMAL,"newPassword","70291346"));
         assertEquals(403,denied.statusCode());assertEquals(owner.authVersion(),accounts.byId(owner.id()).orElseThrow().authVersion());
         assertEquals(200,legitimate.get("/api/admin/users").statusCode());
         String secret=crypto.decrypt("totp:"+owner.id(),owner.totpSecret());
         assertStage(pending.post("/api/auth/mfa/verify",Map.of("code",totp.generateCode(secret,Instant.now()))),"AUTHENTICATED");
-        assertStage(pending.post("/api/auth/change-password",Map.of("currentPassword",NORMAL,"newPassword","Final-New-Password2027!")),"MFA_VERIFY");
+        assertStage(pending.post("/api/auth/change-password",Map.of("currentPassword",NORMAL,"newPassword","70291346")),"MFA_VERIFY");
         assertEquals(401,legitimate.get("/api/admin/users").statusCode());
     }
 
@@ -335,9 +337,13 @@ class AccountsIT {
         assertEquals(403,user.post("/api/admin/users",Map.of("username","forbidden","displayName","Pessoa","temporaryPassword",TEMP),true,UUID.randomUUID()).statusCode());
     }
 
-    @Test void aWhitespaceOnlyReplacementCannotLockTheUserOut() throws Exception {
+    @Test void invalidReplacementPasswordsCannotLockTheUserOut() throws Exception {
         UUID id=insert("person","USER",true,TEMP);Browser browser=new Browser();browser.login("person",TEMP);
-        assertEquals(400,browser.post("/api/auth/change-password",Map.of("currentPassword",TEMP,"newPassword","            ")).statusCode());
+        for (String invalid : List.of("1234567", "123456789", "1234567x", "        ")) {
+            var rejected = browser.post("/api/auth/change-password", Map.of("currentPassword", TEMP, "newPassword", invalid));
+            assertEquals(400, rejected.statusCode());
+            assertEquals("PASSWORD_POLICY", JsonPath.read(rejected.body(), "$.code"));
+        }
         assertTrue(accounts.byId(id).orElseThrow().mustChangePassword());
         assertStage(new Browser().login("person",TEMP),"CHANGE_PASSWORD");
     }

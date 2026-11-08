@@ -3,14 +3,16 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AccountsApi, apiMessage } from './accounts-api';
 import { ApiFailure, AuthSession, MfaSetup } from './accounts.models';
+import { AccountDeletion } from './account-deletion';
 import { AdminAccounts } from './admin-accounts';
+import { AdminDeletions } from './admin-deletions';
 import { Finance } from './finance';
 import { HomeArt } from './home-art';
 import { normalizedUsername, OperationKey, passwordProblem, validUsername } from './security-input';
 
 @Component({
   selector: 'app-root',
-  imports: [ReactiveFormsModule, AdminAccounts, Finance, HomeArt],
+  imports: [ReactiveFormsModule, AccountDeletion, AdminAccounts, AdminDeletions, Finance, HomeArt],
   styleUrl: './app.css',
   templateUrl: './app.html',
 })
@@ -25,7 +27,7 @@ export class App implements OnInit {
   readonly workspaceBusy = signal(false);
   readonly message = signal('');
   readonly notice = signal('');
-  readonly page = signal<'overview' | 'accounts' | 'finance'>('overview');
+  readonly page = signal<'overview' | 'accounts' | 'finance' | 'deletion' | 'deletions'>('overview');
   readonly accessPage = signal<'login' | 'register' | 'requested'>('login');
   readonly changingPassword = signal(false);
   readonly showPassword = signal(false);
@@ -42,13 +44,13 @@ export class App implements OnInit {
     displayName: ['', [Validators.required, Validators.maxLength(120)]],
     email: ['', [Validators.required, Validators.email, Validators.maxLength(254)]],
     username: ['', [Validators.required, Validators.maxLength(40)]],
-    password: ['', Validators.required],
-    confirmPassword: ['', Validators.required],
+    password: ['', [Validators.required, Validators.pattern('[0-9]{8}')]],
+    confirmPassword: ['', [Validators.required, Validators.pattern('[0-9]{8}')]],
   });
   readonly passwordForm = this.forms.group({
     currentPassword: ['', Validators.required],
-    newPassword: ['', Validators.required],
-    confirmPassword: ['', Validators.required],
+    newPassword: ['', [Validators.required, Validators.pattern('[0-9]{8}')]],
+    confirmPassword: ['', [Validators.required, Validators.pattern('[0-9]{8}')]],
   });
   readonly mfaForm = this.forms.group({ code: ['', Validators.required] });
 
@@ -248,7 +250,7 @@ export class App implements OnInit {
     this.message.set('Sua sessão terminou. Entre novamente para continuar.');
   }
 
-  showWorkspacePage(page: 'overview' | 'accounts' | 'finance'): void {
+  showWorkspacePage(page: 'overview' | 'accounts' | 'finance' | 'deletion' | 'deletions'): void {
     if (this.workspaceBusy()) return;
     this.page.set(page);
     this.focusTitle();

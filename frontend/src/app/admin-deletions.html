@@ -1,0 +1,65 @@
+<section class="deletion" aria-labelledby="admin-deletions-title" [attr.aria-busy]="busy()">
+  <span class="eyebrow">PESSOAS E ACESSOS</span>
+  <h1 id="admin-deletions-title" tabindex="-1">Pedidos de exclusão</h1>
+  <p class="deletion-lead">Confira a conta associada ao pedido antes de aprovar a exclusão.</p>
+
+  @if (error()) {
+    <div class="alert error" role="alert"><p>{{ error() }}</p></div>
+  }
+  @if (notice()) {
+    <div class="alert success" role="status"><p>{{ notice() }}</p></div>
+  }
+  @if (selected(); as request) {
+    <article class="deletion-panel deletion-review">
+      <h2 id="approve-deletion-title" tabindex="-1">Aprovar exclusão de {{ request.displayName }}</h2>
+      <p>Esta ação remove a conta e seus dados vinculados da base ativa e encerra as sessões.</p>
+      <form (submit)="$event.preventDefault(); approve()">
+        <div class="field">
+          <label for="confirm-deletion-username">Digite {{ request.username }} para confirmar</label>
+          <input id="confirm-deletion-username" #confirmUsername type="text" [value]="confirmation()"
+            (input)="confirmation.set(confirmUsername.value)" [disabled]="busy()" maxlength="40"
+            autocomplete="off" autocapitalize="none" spellcheck="false" />
+        </div>
+        <div class="deletion-actions">
+          <button class="secondary-button" type="button" (click)="dismiss()" [disabled]="busy()">Voltar</button>
+          <button class="primary-button deletion-danger" type="submit" [disabled]="busy() || confirmation() !== request.username">Aprovar e excluir conta</button>
+        </div>
+      </form>
+    </article>
+  }
+
+  @if (page(); as result) {
+    <div class="deletion-actions deletion-list-actions">
+      <button class="secondary-button" type="button" (click)="load(result.page)" [disabled]="busy()">Atualizar lista</button>
+    </div>
+    @if (result.items.length) {
+      <ul class="deletion-list">
+        @for (request of result.items; track request.id) {
+          <li class="deletion-panel deletion-row">
+            <div>
+              <h2>{{ request.displayName }}</h2>
+              <p>{{ request.username }} · {{ request.email || 'E-mail não informado' }}</p>
+              <p>Pedido enviado em {{ request.requestedAt | date:'dd/MM/yyyy HH:mm' }}</p>
+            </div>
+            <button class="secondary-button" type="button" [id]="'review-deletion-' + request.id" (click)="review(request)" [disabled]="busy()">Revisar pedido</button>
+          </li>
+        }
+      </ul>
+      @if (result.total > result.size) {
+        <div class="deletion-actions" aria-label="Paginação dos pedidos">
+          <button class="secondary-button" type="button" (click)="load(result.page - 1)" [disabled]="busy() || result.page === 0">Anterior</button>
+          <button class="secondary-button" type="button" (click)="load(result.page + 1)" [disabled]="busy() || (result.page + 1) * result.size >= result.total">Próxima</button>
+        </div>
+      }
+    } @else {
+      <p class="inline-note">Nenhum pedido pendente nesta página.</p>
+      @if (result.page > 0) {
+        <button class="secondary-button" type="button" (click)="load(result.page - 1)" [disabled]="busy()">Página anterior</button>
+      }
+    }
+  } @else if (busy()) {
+    <p role="status">Buscando os pedidos…</p>
+  } @else {
+    <button class="secondary-button" type="button" (click)="load(0)">Carregar pedidos</button>
+  }
+</section>

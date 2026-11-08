@@ -87,8 +87,8 @@
       } @else if (state.kind === 'reset') {
         <div class="field">
           <label for="temporary-password">Senha provisória</label>
-          <div class="password-input"><input id="temporary-password" formControlName="temporaryPassword" [type]="showTemporaryPassword() ? 'text' : 'password'" autocomplete="new-password" maxlength="72" aria-describedby="temporary-password-help" (input)="passwordCopied.set(false)" /><button type="button" (click)="showTemporaryPassword.set(!showTemporaryPassword())" [attr.aria-pressed]="showTemporaryPassword()" [attr.aria-label]="showTemporaryPassword() ? 'Ocultar senha provisória' : 'Mostrar senha provisória'">{{ showTemporaryPassword() ? 'Ocultar' : 'Mostrar' }}</button></div>
-          <small id="temporary-password-help">Use de 12 a 64 caracteres. A pessoa deverá trocá-la no próximo acesso.</small>
+          <div class="password-input"><input id="temporary-password" formControlName="temporaryPassword" [type]="showTemporaryPassword() ? 'text' : 'password'" autocomplete="new-password" inputmode="numeric" aria-describedby="temporary-password-help" [attr.aria-invalid]="accountForm.controls.temporaryPassword.touched && accountForm.controls.temporaryPassword.invalid" (input)="passwordCopied.set(false)" /><button type="button" (click)="showTemporaryPassword.set(!showTemporaryPassword())" [attr.aria-pressed]="showTemporaryPassword()" [attr.aria-label]="showTemporaryPassword() ? 'Ocultar senha provisória' : 'Mostrar senha provisória'">{{ showTemporaryPassword() ? 'Ocultar' : 'Mostrar' }}</button></div>
+          <small id="temporary-password-help">Use exatamente 8 dígitos de 0 a 9. A pessoa deverá trocá-la no próximo acesso.</small>
           <div class="password-tools"><button class="text-button" type="button" (click)="generatePassword()" [disabled]="busy()">Gerar senha</button><button class="text-button" type="button" (click)="copyPassword()" [disabled]="busy()">{{ passwordCopied() ? 'Senha copiada' : 'Copiar senha' }}</button></div>
         </div>
         <p class="inline-note">Guarde a senha provisória para entregar à pessoa. Depois de salvar, ela não poderá ser consultada.</p>

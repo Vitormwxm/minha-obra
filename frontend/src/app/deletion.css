@@ -1,0 +1,24 @@
+:host { display: block; }
+.deletion { max-width: 780px; }
+.deletion h1 { margin: 9px 0 10px; font-size: clamp(26px, 5vw, 35px); font-weight: 600; }
+.deletion-lead { margin: 0 0 23px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.deletion-panel { margin-bottom: 14px; padding: clamp(16px, 3vw, 24px); border: 1px solid var(--border); border-radius: 14px; background: #fff; }
+.deletion-panel h2 { margin: 0 0 8px; font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+.deletion-panel p { margin: 0 0 13px; color: var(--muted); font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
+.deletion-panel .status-tag { margin-bottom: 9px; }
+.deletion-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.deletion-list-actions { margin-bottom: 14px; }
+.deletion-list { margin: 0; padding: 0; list-style: none; }
+.deletion-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.deletion-row > div { min-width: 0; }
+.deletion-row p { margin-bottom: 3px; }
+.deletion-row button { flex-shrink: 0; }
+.deletion-review { border-color: #e8cfc9; }
+.deletion-review input { max-width: 340px; }
+.deletion-link { color: #8e4238; }
+.deletion-danger { background: #8e4238; border-color: #8e4238; }
+.deletion-danger:hover:not(:disabled) { background: #77362e; border-color: #77362e; }
+@media (max-width: 520px) {
+  .deletion-row { flex-direction: column; align-items: flex-start; }
+  .deletion-actions > .secondary-button, .deletion-actions > .primary-button { flex: 1 1 100%; }
+}

@@ -9,6 +9,7 @@ import br.com.minhaobra.domain.PaymentMonth.Payment;
 import br.com.minhaobra.domain.PaymentMonth.Status;
 import br.com.minhaobra.domain.SessionPrincipal;
 import br.com.minhaobra.dto.Finance;
+import br.com.minhaobra.repository.AccountDeletionRepository;
 import br.com.minhaobra.repository.AccountRepository;
 import br.com.minhaobra.repository.FinanceRepository;
 import br.com.minhaobra.security.SecretCrypto;
@@ -39,16 +40,19 @@ public class FinanceService {
     private final AccountService accounts;
     private final AccountRepository requests;
     private final FinanceRepository finance;
+    private final AccountDeletionRepository deletionRequests;
     private final SecretCrypto crypto;
     private final ObjectMapper json;
     private final Clock clock;
     private final BcbTrService bcb;
 
     public FinanceService(AccountService accounts, AccountRepository requests, FinanceRepository finance,
-            SecretCrypto crypto, ObjectMapper json, Clock clock, BcbTrService bcb) {
+            SecretCrypto crypto, ObjectMapper json, Clock clock, BcbTrService bcb,
+            AccountDeletionRepository deletionRequests) {
         this.accounts = accounts;
         this.requests = requests;
         this.finance = finance;
+        this.deletionRequests = deletionRequests;
         this.crypto = crypto;
         this.json = json;
         this.clock = clock;
@@ -248,6 +252,10 @@ public class FinanceService {
     private UUID lockOwner(SessionPrincipal principal) {
         Account owner = accounts.currentForUpdate(principal);
         requireAuthenticated(owner, principal);
+        if (deletionRequests.pending(owner.id()).isPresent()) {
+            throw new ApiException(409, "ACCOUNT_DELETION_PENDING",
+                    "Cancele o pedido de exclusão da conta para editar seus lançamentos.");
+        }
         return owner.id();
     }
 

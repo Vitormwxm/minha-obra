@@ -17,6 +17,7 @@ public final class BootstrapAdminCli {
         if(args.length!=2) {System.err.println("Uso: java -jar application.jar --bootstrap-admin <username>");return 2;}
         Console console=System.console();
         if(console==null) {System.err.println("Use um terminal interativo (docker exec -it); a senha não será aceita por argumento ou variável de ambiente.");return 2;}
+        System.out.println("A senha provisória deve ter exatamente 8 dígitos de 0 a 9.");
         char[] first=console.readPassword("Senha provisória do administrador: ");
         char[] confirmation=console.readPassword("Repita a senha provisória: ");
         if(first==null || confirmation==null || !Arrays.equals(first,confirmation)) {

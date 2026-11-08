@@ -36,7 +36,7 @@ export class AdminAccounts implements OnInit, OnDestroy {
   readonly passwordCopied = signal(false);
   readonly searchForm = this.forms.group({ search: ['', Validators.maxLength(120)] });
   readonly accountForm = this.forms.group({
-    temporaryPassword: ['', Validators.required],
+    temporaryPassword: ['', [Validators.required, Validators.pattern('[0-9]{8}')]],
   });
 
   ngOnInit(): void { void this.load(0); }
@@ -99,8 +99,10 @@ export class AdminAccounts implements OnInit, OnDestroy {
 
   async copyPassword(): Promise<void> {
     const password = this.accountForm.controls.temporaryPassword.value;
-    if (!password) {
-      this.dialogMessage.set('Defina ou gere uma senha provisória primeiro.');
+    const problem = passwordProblem(password);
+    if (problem) {
+      this.accountForm.controls.temporaryPassword.markAsTouched();
+      this.dialogMessage.set(password ? problem : 'Defina ou gere uma senha provisória primeiro.');
       return;
     }
     try {
