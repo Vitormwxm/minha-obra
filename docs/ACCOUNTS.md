@@ -35,6 +35,18 @@ AUTHENTICATED. Não há acesso administrativo/de negócio antes da etapa final.
 - POST `/admin/users/{id}/unblock` `{version}` → conta.
 - POST `/admin/users/{id}/temporary-password` `{version,temporaryPassword}` → conta.
 
+- GET `/account/deletion` → `{request: null | {id,requestedAt}}` para a conta de usuário.
+- POST `/account/deletion` → pedido ativo. POST `/account/deletion/cancel` `{requestId}` → estado sem pedido.
+- GET `/admin/deletions?page=0&size=20` → pedidos pendentes e dados de contato.
+- POST `/admin/deletions/{requestId}/approve` → 204, com remoção dos dados da base ativa.
+
+Usuários podem consultar e exportar o histórico enquanto o pedido está pendente.
+Lançamentos e alterações financeiras ficam suspensos até o cancelamento.
+O painel exige MFA e confirmação do nome de usuário antes de aprovar.
+O identificador do pedido protege contra aprovação ou cancelamento de uma
+solicitação anterior. As operações usam `Idempotency-Key`.
+Backups anteriores e eventos já publicados seguem a retenção operacional.
+
 Solicitação, aprovação, redefinição, bloqueio e desbloqueio usam `Idempotency-Key`
 UUID e versão onde indicada. Repetir uma chave com outros dados retorna 409.
 O registro de idempotência usa HMAC e guarda apenas metadados da resposta.
@@ -50,9 +62,11 @@ Rotacionar sessão e renovar CSRF depois de autenticar/trocar senha/logout.
 Conferir status/auth_version no banco em cada request; reset/bloqueio/troca
 revogam sessões, inclusive diante de requests concorrentes.
 
-BCrypt strength12; senha de 12–64 caracteres, máximo 72 bytes UTF-8, sem trim
-ou normalização silenciosa. Throttling antes do hash por IP e username/MFA,
-memória limitada, respostas sem enumeração. Nenhum password/token em logs.
+Senhas novas e provisórias exigem exatamente oito dígitos ASCII e aceitam
+zeros à esquerda. O login e o campo de senha atual continuam aceitando
+credenciais anteriores. O servidor armazena hashes BCrypt com custo 12.
+O limite de tentativas por IP e usuário ou MFA é aplicado antes do hash.
+Logs ficam livres de senhas e tokens.
 
 Admin exige TOTP antes de obter permissão ADMIN. Segredo AES-256-GCM com nonce
 aleatório, chave persistente `APP_TOTP_ENCRYPTION_KEY` base64 de 32 bytes na

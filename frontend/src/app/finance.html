@@ -291,6 +291,9 @@
               @if (result.totalCents === null) { <dt>Subtotal mínimo estimado</dt><dd>{{ amount(result.knownSubtotalCents) }}</dd> }
             </div>
           </dl>
+          @if (canDownloadProjection) {
+            <button class="secondary-button" type="button" (click)="downloadProjection()" [disabled]="busy()">Baixar PDF</button>
+          }
         </div>
         @if (result.rows.length) {
           <app-projection-chart [rows]="result.rows"></app-projection-chart>

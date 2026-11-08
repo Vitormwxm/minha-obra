@@ -117,13 +117,13 @@ public class AccountService {
         String name = request.displayName().trim();
         if (name.length() < 2 || name.length() > 120 || name.codePoints().anyMatch(Character::isISOControl))
             throw new ApiException(400, "INVALID_NAME", "Informe um nome de 2 a 120 caracteres.");
-        PasswordPolicy.validate(request.password());
         String fingerprint = crypto.fingerprint("register", canonical(username, name, request.email(), request.password()));
         repository.requestLock("register-key:" + requestKey);
         var cached = repository.cachedRegistration(requestKey);
         if (cached.isPresent())
             return replay(cached.get(), fingerprint, Accounts.Registration.class);
 
+        PasswordPolicy.validate(request.password());
         repository.requestLock("register-username:" + username);
         if (repository.byUsername(username).isPresent())
             throw unavailableUsername();
@@ -173,13 +173,13 @@ public class AccountService {
     public Accounts.User resetPassword(SessionPrincipal actor, UUID target, UUID key,
             Accounts.TemporaryPassword request) {
         requireAdmin(actor, true);
-        PasswordPolicy.validate(request.temporaryPassword());
         String operation = "reset:" + target;
         return idempotent(actor.accountId(), operation, key,
                 crypto.fingerprint(operation, canonical(Long.toString(request.version()), request.temporaryPassword())),
                 () -> {
                     Account a = editableUser(actor, target, request.version());
                     requireApproved(a);
+                    PasswordPolicy.validate(request.temporaryPassword());
                     String hash = limits.hash(() -> passwords.encode(request.temporaryPassword()));
                     Account changed = repository.resetPassword(a.id(), hash);
                     repository.revokeSessions(target);

@@ -60,6 +60,8 @@ main:focus, h1:focus { outline: none; }
 .account-settings h2 { font-size: 13px; margin: 0 0 6px; font-weight: 500; }
 .account-settings p { font-size: 11px; color: var(--muted); margin: 0; overflow-wrap: anywhere; }
 .account-settings strong { font-weight: 500; }
+.account-settings-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+.workspace-actions { margin-bottom: 18px; }
 .app-footer { border-top: 1px solid var(--border); min-height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 20px; font-size: 10px; color: #7a8981; }
 .app-footer span:first-child { font-weight: 500; color: #556b60; }
 @media (max-width: 980px) { .app-shell { padding: 0 32px; } .login-layout { gap: 40px; } .access-card { padding: 28px; } .admin-feature { flex-wrap: wrap; } .admin-feature .primary-button { margin-left: 67px; } }

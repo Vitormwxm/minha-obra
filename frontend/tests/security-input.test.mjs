@@ -5,21 +5,12 @@ import {
   passwordProblem, validUsername,
 } from '../src/app/security-input.ts';
 
-test('password policy uses Unicode characters and the BCrypt UTF-8 limit', () => {
-  assert.equal(passwordProblem('a'.repeat(12)), null);
-  assert.equal(passwordProblem('a'.repeat(64)), null);
-  assert.notEqual(passwordProblem('a'.repeat(11)), null);
-  assert.notEqual(passwordProblem('a'.repeat(65)), null);
-  assert.equal(passwordProblem('🔨'.repeat(18)), null);
-  assert.notEqual(passwordProblem('🔨'.repeat(19)), null);
-  assert.notEqual(passwordProblem('🔨'.repeat(6)), null);
-  assert.equal(passwordProblem('a'.repeat(59) + '🔨'.repeat(3)), null);
-});
-
-test('passwords can contain spaces but cannot be blank or contain invalid Unicode', () => {
-  assert.equal(passwordProblem('  minha senha particular  '), null);
-  assert.notEqual(passwordProblem(' '.repeat(12)), null);
-  assert.notEqual(passwordProblem('a'.repeat(12) + '\ud800'), null);
+test('new passwords require eight ASCII digits and preserve leading zeroes', () => {
+  assert.equal(passwordProblem('01234567'), null);
+  assert.equal(passwordProblem('00000000'), null);
+  for (const value of ['', '1234567', '123456789', '1234567x', ' 01234567', '01234567\n', '１２３４５６７８']) {
+    assert.notEqual(passwordProblem(value), null);
+  }
 });
 
 test('usernames normalize without permitting paths or ambiguous punctuation prefixes', () => {
@@ -34,8 +25,8 @@ test('usernames normalize without permitting paths or ambiguous punctuation pref
 
 test('generated temporary passwords satisfy the server policy', () => {
   const password = newTemporaryPassword();
-  assert.equal(password.length, 20);
-  assert.match(password, /^[A-Za-z0-9_-]+$/);
+  assert.equal(password.length, 8);
+  assert.match(password, /^[0-9]{8}$/);
   assert.equal(passwordProblem(password), null);
 });
 

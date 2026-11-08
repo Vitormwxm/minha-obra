@@ -3,11 +3,12 @@ import { Component, computed, DestroyRef, ElementRef, inject, OnInit, output, si
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { AccountsApi, apiMessage } from './accounts-api';
 import {
-  FinanceApi, FinanceProjection, FinanceSnapshot, FinancingDraft, LedgerMonth, MonthDraft, Payment, PaymentKind,
-  PaymentStatus, TrOrigin,
+  FinanceApi, FinanceSnapshot, FinancingDraft, LedgerMonth, MonthDraft, Payment, PaymentKind,
+  PaymentStatus, ProjectionAssumptions, TrOrigin,
 } from './finance-api';
 import { parseBrl, parsePercent, validDate, validMonth } from './finance-input';
 import { ProjectionChart } from './projection-chart';
+import type { ProjectionReport } from './projection-pdf';
 import { OperationKey } from './security-input';
 
 type FinanceView = 'summary' | 'financing' | 'month' | 'projection';
@@ -53,7 +54,8 @@ export class Finance implements OnInit {
   readonly confirmingDelete = signal(false);
   readonly officialLookup = signal<{ rate: string | null } | null>(null);
   readonly consultingTr = signal(false);
-  readonly projection = signal<FinanceProjection | null>(null);
+  readonly projection = signal<ProjectionReport | null>(null);
+  readonly canDownloadProjection = !/MinhaObraAndroid\//.test(navigator.userAgent);
   readonly today = this.dateToday();
   readonly recentTr = computed(() => {
     const month = this.today.slice(0, 7);
@@ -142,15 +144,29 @@ export class Finance implements OnInit {
   }
 
   async simulate(): Promise<void> {
+    const financing = this.snapshot()?.financing;
+    if (!financing) return;
+
     await this.runAction('Não foi possível calcular a projeção. Tente novamente.', async () => {
       this.projection.set(null);
       const values = this.projectionForm.getRawValue();
-      this.projection.set(await this.api.project({
+      const assumptions: ProjectionAssumptions = {
         monthlyTr: this.optionalPercent(values.monthlyTr, 'projection-tr'),
         insuranceCents: this.optionalMoney(values.insurance, 'projection-insurance', 'seguro mensal'),
         feesCents: this.optionalMoney(values.fees, 'projection-fees', 'taxas mensais'),
-      }));
+      };
+      this.projection.set({ ...await this.api.project(assumptions), assumptions, financing });
       this.focus('projection-results');
+    });
+  }
+
+  async downloadProjection(): Promise<void> {
+    const report = this.projection();
+    if (!report || !this.canDownloadProjection) return;
+
+    await this.runAction('Não foi possível baixar o PDF. Tente novamente.', async () => {
+      const { createProjectionPdf } = await import('./projection-pdf');
+      createProjectionPdf(report, this.dateToday()).save('minha-obra-projecao.pdf');
     });
   }
 

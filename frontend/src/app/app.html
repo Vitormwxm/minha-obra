@@ -48,12 +48,12 @@
             </div>
             <div class="field">
               <label for="registration-password">Senha</label>
-              <input id="registration-password" formControlName="password" type="password" autocomplete="new-password" maxlength="72" aria-describedby="registration-password-help" [attr.aria-invalid]="registrationForm.controls.password.touched && registrationForm.controls.password.invalid" />
-              <small id="registration-password-help">Use de 12 a 64 caracteres.</small>
+              <input id="registration-password" formControlName="password" type="password" autocomplete="new-password" inputmode="numeric" aria-describedby="registration-password-help" [attr.aria-invalid]="registrationForm.controls.password.touched && registrationForm.controls.password.invalid" />
+              <small id="registration-password-help">Use exatamente 8 dígitos de 0 a 9.</small>
             </div>
             <div class="field">
               <label for="registration-confirmation">Confirme a senha</label>
-              <input id="registration-confirmation" formControlName="confirmPassword" type="password" autocomplete="new-password" maxlength="72" [attr.aria-invalid]="registrationForm.controls.confirmPassword.touched && registrationForm.controls.confirmPassword.invalid" />
+              <input id="registration-confirmation" formControlName="confirmPassword" type="password" autocomplete="new-password" inputmode="numeric" [attr.aria-invalid]="registrationForm.controls.confirmPassword.touched && registrationForm.controls.confirmPassword.invalid" />
             </div>
             <button class="primary-button full-width" type="submit" [disabled]="busy()">{{ busy() ? 'Enviando…' : 'Enviar solicitação' }}</button>
             <button class="text-button full-width secondary-action" type="button" (click)="showAccessPage('login')" [disabled]="busy()">Voltar para entrar</button>
@@ -112,8 +112,8 @@
         <div class="flow-card">
           <form [formGroup]="passwordForm" (ngSubmit)="changePassword()" [attr.aria-busy]="busy()">
             <div class="field"><label for="current-password">{{ changingPassword() ? 'Senha atual' : 'Senha provisória' }}</label><input id="current-password" type="password" formControlName="currentPassword" autocomplete="current-password" maxlength="72" /></div>
-            <div class="field"><label for="new-password">Nova senha</label><input id="new-password" type="password" formControlName="newPassword" autocomplete="new-password" maxlength="72" aria-describedby="password-help" /><small id="password-help">Use de 12 a 64 caracteres. Você pode usar espaços.</small></div>
-            <div class="field"><label for="confirm-password">Confirme a nova senha</label><input id="confirm-password" type="password" formControlName="confirmPassword" autocomplete="new-password" maxlength="72" /></div>
+            <div class="field"><label for="new-password">Nova senha</label><input id="new-password" type="password" formControlName="newPassword" autocomplete="new-password" inputmode="numeric" aria-describedby="password-help" [attr.aria-invalid]="passwordForm.controls.newPassword.touched && passwordForm.controls.newPassword.invalid" /><small id="password-help">Use exatamente 8 dígitos de 0 a 9.</small></div>
+            <div class="field"><label for="confirm-password">Confirme a nova senha</label><input id="confirm-password" type="password" formControlName="confirmPassword" autocomplete="new-password" inputmode="numeric" [attr.aria-invalid]="passwordForm.controls.confirmPassword.touched && passwordForm.controls.confirmPassword.invalid" /></div>
             <button class="primary-button full-width" type="submit" [disabled]="busy()">{{ busy() ? 'Atualizando…' : 'Salvar nova senha' }}</button>
             @if (changingPassword()) { <button class="text-button full-width secondary-action" type="button" (click)="cancelPasswordChange()" [disabled]="busy()">Voltar à minha conta</button> }
           </form>
@@ -167,10 +167,16 @@
         <nav class="workspace-nav" aria-label="Minha conta">
           <button type="button" [class.selected]="page() === 'overview'" [attr.aria-current]="page() === 'overview' ? 'page' : null" (click)="showWorkspacePage('overview')" [disabled]="workspaceBusy()">Visão geral</button>
           <button type="button" [class.selected]="page() === 'finance'" [attr.aria-current]="page() === 'finance' ? 'page' : null" (click)="showWorkspacePage('finance')" [disabled]="workspaceBusy()">Minha obra</button>
-          @if (current.user.role === 'ADMIN') { <button type="button" [class.selected]="page() === 'accounts'" [attr.aria-current]="page() === 'accounts' ? 'page' : null" (click)="showWorkspacePage('accounts')" [disabled]="workspaceBusy()">Pessoas e acessos</button> }
+          @if (current.user.role === 'ADMIN') { <button type="button" [class.selected]="page() === 'accounts' || page() === 'deletions'" [attr.aria-current]="page() === 'accounts' || page() === 'deletions' ? 'page' : null" (click)="showWorkspacePage('accounts')" [disabled]="workspaceBusy()">Pessoas e acessos</button> }
         </nav>
         @if (page() === 'accounts' && current.user.role === 'ADMIN') {
+          <div class="workspace-actions"><button class="secondary-button" type="button" (click)="showWorkspacePage('deletions')" [disabled]="workspaceBusy()">Pedidos de exclusão</button></div>
           <app-admin-accounts [currentUser]="current.user" (expired)="sessionExpired()" (processing)="workspaceBusy.set($event)" />
+        } @else if (page() === 'deletions' && current.user.role === 'ADMIN') {
+          <div class="workspace-actions"><button class="text-button" type="button" (click)="showWorkspacePage('accounts')" [disabled]="workspaceBusy()">Voltar para Pessoas e acessos</button></div>
+          <app-admin-deletions (expired)="sessionExpired()" (processing)="workspaceBusy.set($event)" />
+        } @else if (page() === 'deletion' && current.user.role === 'USER') {
+          <app-account-deletion [webDownloads]="!isAndroidApp" (expired)="sessionExpired()" (processing)="workspaceBusy.set($event)" />
         } @else if (page() === 'finance' && current.stage === 'AUTHENTICATED') {
           <app-finance (expired)="sessionExpired()" (processing)="workspaceBusy.set($event)" />
         } @else {
@@ -180,7 +186,15 @@
               <article class="feature-card admin-feature"><span class="feature-number" aria-hidden="true">01</span><div><span class="eyebrow">ADMINISTRAÇÃO</span><h2>Organize os acessos à plataforma.</h2><p>Aprove solicitações, redefina senhas e gerencie bloqueios em um só lugar.</p></div><button class="primary-button" type="button" (click)="showWorkspacePage('accounts')">Gerenciar pessoas <span aria-hidden="true">→</span></button></article>
             }
             <article class="feature-card finance-feature"><span class="feature-number" aria-hidden="true">↗</span><div><span class="eyebrow">ACOMPANHAMENTO DA OBRA</span><h2>Sua obra, com mais clareza.</h2><p>Cadastre seu financiamento CAIXA e acompanhe os pagamentos da evolução de obra e da construtora.</p></div><button class="primary-button" type="button" (click)="showWorkspacePage('finance')">Acompanhar minha obra <span aria-hidden="true">→</span></button></article>
-            <div class="account-settings"><div><h2>Cuide do seu acesso</h2><p>Você entrou como <strong>{{ current.user.username }}</strong>.</p></div><button class="secondary-button" type="button" (click)="openPasswordChange()" [disabled]="workspaceBusy()">Alterar minha senha</button></div>
+            <div class="account-settings">
+              <div><h2>Cuide do seu acesso</h2><p>Você entrou como <strong>{{ current.user.username }}</strong>.</p></div>
+              <div class="account-settings-actions">
+                <button class="secondary-button" type="button" (click)="openPasswordChange()" [disabled]="workspaceBusy()">Alterar minha senha</button>
+                @if (current.user.role === 'USER') {
+                  <button class="secondary-button" type="button" (click)="showWorkspacePage('deletion')" [disabled]="workspaceBusy()">Exclusão da conta</button>
+                }
+              </div>
+            </div>
           </section>
         }
       </div>

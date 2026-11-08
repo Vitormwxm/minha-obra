@@ -90,6 +90,11 @@ o saldo a pagar projetado, e meses quitados entram com saldo a pagar zero.
 Campos em branco podem deixar a projeção parcial. Se o valor de um pagamento
 destinado à evolução for incerto, o subtotal usa o maior abatimento possível. Pagamentos da construtora
 e INCC são tratados separadamente.
+A versão web gera o PDF no navegador a partir do cenário calculado, com
+as hipóteses e os encargos por mês. O histórico de pagamentos pode ser
+baixado em CSV, com um arquivo para o resumo mensal e outro para os
+pagamentos individuais, na área de exclusão da conta.
+
 
 ## Regras financeiras aprovadas
 

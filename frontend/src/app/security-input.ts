@@ -1,17 +1,8 @@
-/** Passwords are deliberately never trimmed or normalized. */
+/** New passwords are strings to preserve leading zeroes. */
 export function passwordProblem(value: string): string | null {
-  if (!value.trim()) return 'A senha não pode conter apenas espaços.';
-  const count = Array.from(value).length;
-  if (count < 12) return 'Use pelo menos 12 caracteres.';
-  if (count > 64) return 'Use no máximo 64 caracteres.';
-  if (new TextEncoder().encode(value).length > 72) {
-    return 'Esta senha tem muitos caracteres especiais. Use até 72 bytes em UTF-8.';
-  }
-  if (Array.from(value).some((character) => {
-    const point = character.codePointAt(0)!;
-    return point >= 0xd800 && point <= 0xdfff;
-  })) return 'Use apenas caracteres de texto válidos na senha.';
-  return null;
+  return value.length === 8 && !/[^0-9]/.test(value)
+    ? null
+    : 'Use uma senha com exatamente 8 dígitos de 0 a 9.';
 }
 
 export function normalizedUsername(value: string): string {
@@ -31,8 +22,13 @@ export function newOperationKey(): string {
 }
 
 export function newTemporaryPassword(): string {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
-  return Array.from(crypto.getRandomValues(new Uint8Array(20)), (value) => alphabet[value & 63]).join('');
+  const combinations = 100_000_000;
+  const limit = Math.floor(2 ** 32 / combinations) * combinations;
+  const random = new Uint32Array(1);
+  do {
+    crypto.getRandomValues(random);
+  } while (random[0]! >= limit);
+  return (random[0]! % combinations).toString().padStart(8, '0');
 }
 
 /**

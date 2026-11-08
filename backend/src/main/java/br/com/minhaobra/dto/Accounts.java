@@ -37,7 +37,7 @@ public final class Accounts {
     }
 
     public record ChangePassword(@NotBlank @Size(max = 256) String currentPassword,
-            @NotNull @Size(min = 12, max = 72) String newPassword) {
+            @NotNull @Size(max = 72) String newPassword) {
         @Override
         public String toString() {
             return "ChangePassword[redacted]";
@@ -47,7 +47,7 @@ public final class Accounts {
     public record Register(@NotBlank @Size(min = 3, max = 40) String username,
             @NotBlank @Size(min = 2, max = 120) String displayName,
             @NotBlank @Email @Size(max = 254) String email,
-            @NotNull @Size(min = 12, max = 72) String password) {
+            @NotNull @Size(max = 72) String password) {
         public Register {
             email = email == null ? null : email.strip();
         }
@@ -65,7 +65,7 @@ public final class Accounts {
     }
 
     public record TemporaryPassword(@NotNull @PositiveOrZero Long version,
-            @NotNull @Size(min = 12, max = 72) String temporaryPassword) {
+            @NotNull @Size(max = 72) String temporaryPassword) {
         @Override
         public String toString() {
             return "TemporaryPassword[redacted]";
