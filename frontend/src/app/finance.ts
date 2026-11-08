@@ -1,14 +1,18 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, ElementRef, inject, OnInit, output, signal } from '@angular/core';
+import { Component, computed, DestroyRef, ElementRef, inject, OnInit, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { AccountsApi, apiMessage } from './accounts-api';
 import {
-  FinanceApi, FinanceSnapshot, FinancingDraft, LedgerMonth, MonthDraft, Payment, PaymentKind, PaymentStatus,
+  FinanceApi, FinanceProjection, FinanceSnapshot, FinancingDraft, LedgerMonth, MonthDraft, Payment, PaymentKind,
+  PaymentStatus, TrOrigin,
 } from './finance-api';
-import { parseBrl, parseNominalRate, validDate, validMonth } from './finance-input';
+import { parseBrl, parsePercent, validDate, validMonth } from './finance-input';
 import { OperationKey } from './security-input';
 
-type FinanceView = 'summary' | 'financing' | 'month';
+type FinanceView = 'summary' | 'financing' | 'month' | 'projection';
+
+const MIN_TR_DATE = '1991-02-01';
+const TR_MAX_DAYS = 32;
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const moneyInput = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -46,10 +50,22 @@ export class Finance implements OnInit {
   readonly invalidField = signal('');
   readonly editingMonth = signal<LedgerMonth | null>(null);
   readonly confirmingDelete = signal(false);
+  readonly officialLookup = signal<{ rate: string | null } | null>(null);
+  readonly consultingTr = signal(false);
+  readonly projection = signal<FinanceProjection | null>(null);
   readonly today = this.dateToday();
+  readonly recentTr = computed(() => {
+    const month = this.today.slice(0, 7);
+    const row = this.snapshot()?.months.slice().reverse().find((entry) => entry.month <= month && entry.tr);
+    return row?.tr ? { month: row.month, tr: row.tr } : null;
+  });
+  readonly minTrDate = MIN_TR_DATE;
   readonly paymentLimit = 100;
   readonly statuses: Record<PaymentStatus, string> = {
     OPEN: 'Em aberto', PAID: 'Quitado', NO_PAYMENT: 'Sem pagamento',
+  };
+  readonly trOrigins: Record<TrOrigin, string> = {
+    OFFICIAL: 'Oficial', ESTIMATED: 'Estimada', MANUAL: 'Manual',
   };
 
   readonly financingForm = this.forms.group({
@@ -60,8 +76,9 @@ export class Finance implements OnInit {
     month: '', caixaDue: '', builderDue: '',
     caixaStatus: this.forms.control<PaymentStatus>('OPEN'),
     builderStatus: this.forms.control<PaymentStatus>('OPEN'),
-    released: '', insurance: '', fees: '', payments: this.payments,
+    released: '', insurance: '', fees: '', trPeriodStart: '', trPeriodEnd: '', manualTr: '', payments: this.payments,
   });
+  readonly projectionForm = this.forms.group({ monthlyTr: '', insurance: '', fees: '' });
 
   ngOnInit(): void { void this.reload(); }
 
@@ -101,6 +118,8 @@ export class Finance implements OnInit {
       caixaStatus: existing?.caixaStatus ?? 'OPEN', builderStatus: existing?.builderStatus ?? 'OPEN',
       released: this.inputAmount(existing?.releasedCents), insurance: this.inputAmount(existing?.insuranceCents),
       fees: this.inputAmount(existing?.feesCents),
+      trPeriodStart: existing?.trPeriodStart ?? '', trPeriodEnd: existing?.trPeriodEnd ?? '',
+      manualTr: existing?.manualTr?.replace('.', ',') ?? '',
     });
     existing?.payments.forEach((payment) => this.payments.push(this.paymentForm(payment)));
     this.show('month');
@@ -108,6 +127,44 @@ export class Finance implements OnInit {
 
   backToSummary(): void {
     if (!this.busy()) this.show('summary');
+  }
+
+  openProjection(): void {
+    this.projection.set(null);
+    this.show('projection');
+  }
+
+  useHistoricalTr(rate: string): void {
+    this.projectionForm.controls.monthlyTr.setValue(rate.replace('.', ','));
+    this.projection.set(null);
+    this.clearInputProblem();
+  }
+
+  async simulate(): Promise<void> {
+    await this.runAction('Não foi possível calcular a projeção. Tente novamente.', async () => {
+      this.projection.set(null);
+      const values = this.projectionForm.getRawValue();
+      this.projection.set(await this.api.project({
+        monthlyTr: this.optionalPercent(values.monthlyTr, 'projection-tr'),
+        insuranceCents: this.optionalMoney(values.insurance, 'projection-insurance', 'seguro mensal'),
+        feesCents: this.optionalMoney(values.fees, 'projection-fees', 'taxas mensais'),
+      }));
+      this.focus('projection-results');
+    });
+  }
+
+  async lookupOfficialTr(): Promise<void> {
+    await this.runAction('Não foi possível consultar a TR oficial. Tente novamente.', async () => {
+      const period = this.readTrPeriod();
+      if (!period) throw new InputProblem('tr-period-start', 'Informe as duas datas do período contratual para consultar a TR.');
+      this.consultingTr.set(true);
+      this.officialLookup.set(null);
+      try {
+        this.officialLookup.set(await this.api.officialTr(period.periodStart, period.periodEnd));
+      } finally {
+        this.consultingTr.set(false);
+      }
+    });
   }
 
   addPayment(kind: PaymentKind): void {
@@ -137,7 +194,7 @@ export class Finance implements OnInit {
       const financed = this.requiredMoney(values.financed, 'financed', 'valor do financiamento');
       const released = this.requiredMoney(values.released, 'released', 'saldo atual liberado', true);
       if (released > financed) throw new InputProblem('released', 'O saldo liberado deve ser igual ou menor que o valor do financiamento.');
-      const nominal = parseNominalRate(values.nominal);
+      const nominal = parsePercent(values.nominal);
       if (nominal === null) throw new InputProblem('nominal', 'Informe juros nominais de 0 a 100% ao ano, com até seis casas decimais.');
       const tracking = values.tracking.trim();
       if (!validMonth(tracking)) throw new InputProblem('tracking', 'Informe o início do acompanhamento no formato AAAA-MM.');
@@ -189,6 +246,7 @@ export class Finance implements OnInit {
       });
       this.checkStatus(values.caixaStatus, 'CAIXA', payments, 'caixa-status');
       this.checkStatus(values.builderStatus, 'CONSTRUTORA', payments, 'builder-status');
+      const period = this.readTrPeriod();
       const payload: MonthDraft = {
         version: existing?.version ?? null,
         caixaDueDate: this.dueDate(values.caixaDue, month, 'caixa-due'),
@@ -196,6 +254,10 @@ export class Finance implements OnInit {
         caixaStatus: values.caixaStatus, builderStatus: values.builderStatus,
         releasedCents: released, insuranceCents: this.optionalMoney(values.insurance, 'insurance', 'seguro'),
         feesCents: this.optionalMoney(values.fees, 'fees', 'taxas'), payments,
+        trSettings: {
+          periodStart: period?.periodStart ?? null, periodEnd: period?.periodEnd ?? null,
+          manualRate: this.optionalPercent(values.manualTr, 'manual-tr'),
+        },
       };
       await this.api.saveMonth(month, payload, await this.monthKey.forPayload(month, payload));
       this.monthKey.clear();
@@ -224,6 +286,8 @@ export class Finance implements OnInit {
 
   dateLabel(date: string): string { return date.split('-').reverse().join('/'); }
 
+  percent(rate: string): string { return rate.replace('.', ',') + '%'; }
+
   private paymentForm(payment?: Payment, kind: PaymentKind = 'CAIXA') {
     return this.forms.group({
       kind: this.forms.control<PaymentKind>(payment?.kind ?? kind), paidOn: payment?.paidOn ?? this.today,
@@ -238,6 +302,27 @@ export class Finance implements OnInit {
     const cents = parseBrl(value);
     if (cents === null) throw new InputProblem(field, `Informe um valor válido para ${label}, de R$ 0 a R$ 100.000.000.`);
     return cents;
+  }
+
+  private optionalPercent(value: string, field: string): string | null {
+    if (!value.trim()) return null;
+    const rate = parsePercent(value);
+    if (rate === null) throw new InputProblem(field, 'Informe uma TR de 0 a 100%, com até seis casas decimais.');
+    return rate;
+  }
+
+  private readTrPeriod(): { periodStart: string; periodEnd: string } | null {
+    const values = this.monthForm.getRawValue();
+    if (!values.trPeriodStart.trim() && !values.trPeriodEnd.trim()) return null;
+    const periodStart = this.date(values.trPeriodStart, 'tr-period-start', 'data inicial');
+    const periodEnd = this.date(values.trPeriodEnd, 'tr-period-end', 'data final');
+    if (periodStart < MIN_TR_DATE) throw new InputProblem('tr-period-start', 'O período da TR deve começar em 01/02/1991 ou depois.');
+    const days = (Date.parse(periodEnd) - Date.parse(periodStart)) / 86_400_000;
+    if (days <= 0 || days > TR_MAX_DAYS) {
+      throw new InputProblem('tr-period-end', 'A data final deve vir de 1 a 32 dias depois da data inicial.');
+    }
+    if (periodEnd > this.today) throw new InputProblem('tr-period-end', 'A data final da TR deve ser hoje ou anterior.');
+    return { periodStart, periodEnd };
   }
 
   private requiredMoney(value: string, field: string, label: string, allowZero = false): number {
@@ -287,6 +372,15 @@ export class Finance implements OnInit {
   }
 
   private async mutate(success: string, action: () => Promise<void>): Promise<void> {
+    await this.runAction('Não foi possível salvar a alteração. Tente novamente.', async () => {
+      await action();
+      this.show('summary');
+      this.notice.set(success);
+      await this.reload();
+    });
+  }
+
+  private async runAction(fallback: string, action: () => Promise<void>): Promise<void> {
     if (this.busy() || this.loading() || this.loadError()) return;
     this.busy.set(true);
     this.processing.emit(true);
@@ -295,9 +389,6 @@ export class Finance implements OnInit {
     this.invalidField.set('');
     try {
       await action();
-      this.show('summary');
-      this.notice.set(success);
-      await this.reload();
     } catch (error) {
       if (error instanceof InputProblem) {
         this.invalidField.set(error.field);
@@ -307,7 +398,7 @@ export class Finance implements OnInit {
         if (error instanceof HttpErrorResponse && error.status === 409) {
           this.error.set('Estes dados mudaram desde a última consulta. Volte à planilha e atualize os dados antes de editar novamente.');
         } else {
-          this.error.set(apiMessage(error, 'Não foi possível salvar a alteração. Tente novamente.'));
+          this.error.set(apiMessage(error, fallback));
         }
       }
     } finally {
@@ -336,6 +427,7 @@ export class Finance implements OnInit {
   private show(view: FinanceView): void {
     this.view.set(view);
     this.confirmingDelete.set(false);
+    this.officialLookup.set(null);
     this.invalidField.set('');
     this.error.set('');
     this.notice.set('');

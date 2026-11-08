@@ -2,6 +2,7 @@
 """Exercise accounts and financing through HTTPS against the isolated CI stack."""
 import argparse
 import base64
+import datetime
 import hashlib
 import hmac
 import http.cookiejar
@@ -18,6 +19,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+from zoneinfo import ZoneInfo
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -116,15 +118,18 @@ def latest_user(admin):
 def assert_finance(person, admin):
     empty = {"financing": None, "months": [], "missingMonths": []}
     assert person.request("GET", "/api/finance") == empty
+    now = datetime.datetime.now(ZoneInfo("America/Fortaleza")).date()
+    delivery = (now.replace(day=28) + datetime.timedelta(days=4)).replace(day=1)
     person.request("PUT", "/api/finance/financing", {
         "version": None, "financedCents": 19_200_000, "releasedCents": 8_400_000,
-        "annualNominalRate": "7.5", "expectedDeliveryDate": "2027-12-31",
+        "annualNominalRate": "7.5", "expectedDeliveryDate": delivery.isoformat(),
         "trackingStartMonth": "2025-01", "subsidyCents": 1_000_000,
     }, key=str(uuid.uuid4()))
     month = {
         "version": None, "caixaDueDate": "2025-03-10", "builderDueDate": None,
         "caixaStatus": "PAID", "builderStatus": "NO_PAYMENT",
         "releasedCents": 8_000_000, "insuranceCents": 3_500, "feesCents": 2_500,
+        "trSettings": {"periodStart": None, "periodEnd": None, "manualRate": "0.3"},
         "payments": [{"kind": "CAIXA", "paidOn": "2025-03-12", "paidCents": 50_000,
                       "lateChargeCents": 700}],
     }
@@ -140,6 +145,17 @@ def assert_finance(person, admin):
     row = ledger["months"][0]
     assert row["monthlyTotalCents"] == row["accumulatedPaidCents"] == 50_000
     assert row["builderPaidCents"] == 0 and row["closed"]
+    assert row["tr"] == {"origin": "MANUAL", "rate": "0.3"}
+    assumptions = {"monthlyTr": "0.2", "insuranceCents": 3500, "feesCents": 2500}
+    projection = person.request("POST", "/api/finance/projection", assumptions)
+    assert projection["rows"][-1]["month"] == delivery.isoformat()[:7]
+    assert projection["rows"][-1]["releasedCents"] == 19_200_000
+    assert sum(item["releaseCents"] for item in projection["rows"]) == 10_800_000
+    assert projection["totalCents"] == projection["knownSubtotalCents"] > 0
+    assumptions["monthlyTr"] = None
+    partial = person.request("POST", "/api/finance/projection", assumptions)
+    assert partial["totalCents"] is None and partial["knownSubtotalCents"] > 0
+    admin.request("POST", "/api/finance/projection", assumptions, expected=404)
     assert admin.request("GET", "/api/finance") == empty
 
 

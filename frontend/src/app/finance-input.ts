@@ -9,7 +9,7 @@ export function parseBrl(value: string): number | null {
   return Number.isSafeInteger(cents) && cents <= MAX_CENTS ? cents : null;
 }
 
-export function parseNominalRate(value: string): string | null {
+export function parsePercent(value: string): string | null {
   const normalized = value.trim().replace(',', '.').replace(/^0+(?=\d)/, '');
   if (!/^\d{1,3}(?:\.\d{1,6})?$/.test(normalized) || Number(normalized) > 100) return null;
   return normalized;

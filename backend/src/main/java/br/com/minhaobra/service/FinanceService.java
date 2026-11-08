@@ -1,6 +1,7 @@
 package br.com.minhaobra.service;
 
 import br.com.minhaobra.domain.Account;
+import br.com.minhaobra.domain.ConstructionTr;
 import br.com.minhaobra.domain.Financing;
 import br.com.minhaobra.domain.PaymentMonth;
 import br.com.minhaobra.domain.PaymentMonth.Kind;
@@ -19,6 +20,7 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -33,30 +35,42 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 public class FinanceService {
     private static final ZoneId FINANCE_ZONE = ZoneId.of("America/Fortaleza");
+    private static final LocalDate FIRST_TR_DATE = LocalDate.of(1991, 2, 1);
     private final AccountService accounts;
     private final AccountRepository requests;
     private final FinanceRepository finance;
     private final SecretCrypto crypto;
     private final ObjectMapper json;
     private final Clock clock;
+    private final BcbTrService bcb;
 
     public FinanceService(AccountService accounts, AccountRepository requests, FinanceRepository finance,
-            SecretCrypto crypto, ObjectMapper json, Clock clock) {
+            SecretCrypto crypto, ObjectMapper json, Clock clock, BcbTrService bcb) {
         this.accounts = accounts;
         this.requests = requests;
         this.finance = finance;
         this.crypto = crypto;
         this.json = json;
         this.clock = clock;
+        this.bcb = bcb;
     }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public Finance.Ledger ledger(SessionPrincipal principal) {
-        Account account = accounts.sessionAccount(principal)
-                .orElseThrow(() -> new ApiException(401, "SESSION_EXPIRED", "Sua sessão expirou. Entre novamente."));
-        requireAuthenticated(account, principal);
+        Account account = authenticatedAccount(principal);
         return finance.financing(account.id()).map(this::buildLedger)
                 .orElseGet(() -> new Finance.Ledger(null, List.of(), List.of()));
+    }
+
+    public Finance.OfficialTrResult officialTr(SessionPrincipal principal, Finance.OfficialTrInput input) {
+        authenticatedAccount(principal);
+        TrPeriod period = trPeriod(input.startDate(), input.endDate(), LocalDate.now(clock.withZone(FINANCE_ZONE)));
+        var rate = finance.officialTr(period.start(), period.end()).or(() -> {
+            var fetched = bcb.lookup(period.start(), period.end());
+            fetched.ifPresent(value -> finance.cacheOfficialTr(period.start(), period.end(), value));
+            return fetched;
+        });
+        return new Finance.OfficialTrResult(rate.map(FinanceService::rateString).orElse(null));
     }
 
     @Transactional
@@ -93,7 +107,8 @@ public class FinanceService {
         YearMonth month = parseMonth(monthValue);
         return idempotent(owner, "finance:month:" + month, key, input, () -> {
             Financing financing = requireFinancing(owner);
-            Long currentVersion = finance.monthVersion(financing.id(), month).orElse(null);
+            PaymentMonth previous = finance.month(financing.id(), month).orElse(null);
+            Long currentVersion = previous == null ? null : previous.version();
             requireVersion(currentVersion, input.version());
             if (month.isBefore(financing.trackingStartMonth())) {
                 throw invalid("MONTH_BEFORE_TRACKING_START", "O lançamento deve ocorrer a partir do mês de início.");
@@ -106,9 +121,20 @@ public class FinanceService {
             List<Payment> payments = input.payments().stream().map(payment -> payment(payment, today)).toList();
             checkStatus(input.caixaStatus(), payments, Kind.CAIXA);
             checkStatus(input.builderStatus(), payments, Kind.CONSTRUTORA);
+            var settings = input.trSettings();
+            LocalDate periodStart = previous == null ? null : previous.trPeriodStart();
+            LocalDate periodEnd = previous == null ? null : previous.trPeriodEnd();
+            BigDecimal manualTr = previous == null ? null : previous.manualTr();
+            if (settings != null) {
+                TrPeriod period = trPeriod(settings.periodStart(), settings.periodEnd(), today);
+                periodStart = period.start();
+                periodEnd = period.end();
+                manualTr = settings.manualRate() == null ? null : new BigDecimal(settings.manualRate());
+            }
             PaymentMonth record = new PaymentMonth(month, currentVersion == null ? 0 : currentVersion,
                     caixaDue, builderDue, input.caixaStatus(), input.builderStatus(), released,
-                    optionalLong(input.insuranceCents()), optionalLong(input.feesCents()));
+                    optionalLong(input.insuranceCents()), optionalLong(input.feesCents()),
+                    periodStart, periodEnd, manualTr, null);
             return new Finance.Revision(finance.saveMonth(financing.id(), record, payments));
         });
     }
@@ -164,15 +190,59 @@ public class FinanceService {
                     month.caixaStatus(), month.builderStatus(), month.releasedCents(), month.insuranceCents(),
                     month.feesCents(), payments.stream().map(FinanceService::paymentView).toList(), closed,
                     caixaPaid, builderPaid, total, caixaAccumulated, builderAccumulated,
-                    caixaAccumulated + builderAccumulated, variation);
+                    caixaAccumulated + builderAccumulated, variation, dateString(month.trPeriodStart()),
+                    dateString(month.trPeriodEnd()), rateString(month.manualTr()),
+                    activeTr(month, payments, financing.annualNominalRate()));
             views.add(view);
             previous = view;
         }
         var details = new Finance.FinancingView(financing.id(), financing.version(), financing.financedCents(),
-                financing.releasedCents(), financing.annualNominalRate().stripTrailingZeros().toPlainString(),
+                financing.releasedCents(), rateString(financing.annualNominalRate()),
                 dateString(financing.expectedDeliveryDate()), financing.trackingStartMonth().toString(),
                 financing.subsidyCents());
         return new Finance.Ledger(details, views, missing);
+    }
+
+    private Account authenticatedAccount(SessionPrincipal principal) {
+        Account account = accounts.sessionAccount(principal)
+                .orElseThrow(() -> new ApiException(401, "SESSION_EXPIRED", "Sua sessão expirou. Entre novamente."));
+        requireAuthenticated(account, principal);
+        return account;
+    }
+
+    private static Finance.TrRate activeTr(PaymentMonth month, List<Payment> payments, BigDecimal annualRate) {
+        if (month.manualTr() != null) {
+            return new Finance.TrRate(rateString(month.manualTr()), Finance.TrOrigin.MANUAL);
+        }
+        if (month.officialTr() != null) {
+            return new Finance.TrRate(rateString(month.officialTr()), Finance.TrOrigin.OFFICIAL);
+        }
+        return ConstructionTr.estimate(month, payments, annualRate)
+                .map(rate -> new Finance.TrRate(rateString(rate), Finance.TrOrigin.ESTIMATED))
+                .orElse(null);
+    }
+
+    private record TrPeriod(LocalDate start, LocalDate end) {
+    }
+
+    private static TrPeriod trPeriod(String startValue, String endValue, LocalDate today) {
+        if (startValue == null && endValue == null) {
+            return new TrPeriod(null, null);
+        }
+        if (startValue == null || endValue == null) {
+            throw invalid("INVALID_TR_PERIOD", "Informe as duas datas do período contratual da TR.");
+        }
+        LocalDate start = parseDate(startValue);
+        LocalDate end = parseDate(endValue);
+        long days = ChronoUnit.DAYS.between(start, end);
+        if (start.isBefore(FIRST_TR_DATE) || end.isAfter(today) || days < 1 || days > 32) {
+            throw invalid("INVALID_TR_PERIOD", "Informe um período histórico válido de até 32 dias.");
+        }
+        return new TrPeriod(start, end);
+    }
+
+    private static String rateString(BigDecimal rate) {
+        return rate == null ? null : rate.stripTrailingZeros().toPlainString();
     }
 
     private UUID lockOwner(SessionPrincipal principal) {
