@@ -1,5 +1,29 @@
 plugins { id 'com.android.application' }
 
+def firebaseFile = providers.gradleProperty('minhaObraFirebaseFile').map { rootProject.file(it) }.orNull
+def firebaseResources = [:]
+if (firebaseFile != null) {
+    if (!firebaseFile.isFile()) {
+        throw new GradleException('O arquivo de configuração Firebase informado não existe.')
+    }
+    def firebase
+    try {
+        firebase = new groovy.json.JsonSlurper().parse(firebaseFile)
+    } catch (Exception ignored) {
+        throw new GradleException('O arquivo de configuração Firebase precisa ser um JSON válido.')
+    }
+    def client = firebase.client?.find { it.client_info?.android_client_info?.package_name == 'br.com.minhaobra.app' }
+    firebaseResources = [
+        google_app_id: client?.client_info?.mobilesdk_app_id,
+        gcm_defaultSenderId: firebase.project_info?.project_number,
+        project_id: firebase.project_info?.project_id,
+        google_api_key: client?.api_key?.find()?.current_key,
+    ]
+    if (firebaseResources.values().any { !(it instanceof String) || it.isBlank() }) {
+        throw new GradleException('A configuração Firebase precisa conter o app br.com.minhaobra.app.')
+    }
+}
+
 def minhaObraHost = providers.gradleProperty('minhaObraHost').orElse('focuslabapp.com').get().toLowerCase(Locale.ROOT)
 if (minhaObraHost.length() > 253 || !minhaObraHost.matches('(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?')) {
     throw new GradleException('minhaObraHost must contain only a valid HTTPS domain, without a path or port.')
@@ -30,8 +54,9 @@ android {
         applicationId 'br.com.minhaobra.app'
         minSdk 26
         targetSdk 35
-        versionCode 3
-        versionName '1.1.0'
+        versionCode 4
+        versionName '1.2.0'
+        firebaseResources.each { key, value -> resValue 'string', key, value }
         buildConfigField 'String', 'APP_HOST', '"' + minhaObraHost + '"'
     }
 
@@ -61,6 +86,11 @@ android {
     }
 
     lint { abortOnError true }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.13.0'
+    implementation 'com.google.firebase:firebase-messaging:25.0.2'
 }
 
 def webAssetsDir = rootProject.file('../frontend/dist/minha-obra/browser')

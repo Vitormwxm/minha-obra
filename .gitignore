@@ -14,6 +14,10 @@ coverage/
 backups/
 **/signing.properties
 **/local.properties
+**/google-services.json
+**/firebase-push.json
+**/*firebase-adminsdk*.json
+**/push-secrets/
 *.jks
 *.keystore
 *.p12

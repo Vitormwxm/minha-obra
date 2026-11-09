@@ -132,17 +132,18 @@ e detalhada, PDF da projeção; sem importação de arquivos na primeira versão
 
 ## Notificações e Android
 
-A conta pode salvar preferências de lembretes e dias recorrentes. A entrega
-ao celular ainda depende do cadastro Android no Firebase e da implementação
-do agendamento e envio. A tela identifica essa pendência.
+Cada aparelho Android pode autorizar avisos. O vínculo autenticado registra o
+fuso local e acompanha a versão de segurança da conta. Sair da conta desvincula
+o aparelho. O backend mantém até dez vínculos por conta e desconsidera os que
+ficam mais de 90 dias sem atualização.
 
-O fluxo previsto usa Kafka para processar os avisos e FCM para entregá-los. Padrão configurável: 3/1/0 dias
-antes, 9h local do celular; um dia após o vencimento e repetição semanal opcional
-desativada inicialmente. Quitação manual cancela avisos futuros; parcial mantém.
-Dia inexistente na recorrência usa o último dia do mês; data específica prevalece.
-Valores visíveis por padrão. Todos os Android conectados e autorizados recebem;
-sair da conta remove o vínculo. Permissão, conectividade e condições do Android
-podem atrasar entrega: horário programado não é garantia de recebimento exato.
+Os pedidos de cadastro chegam pelo Kafka. Um agendador calcula os lembretes de
+pagamento e os dois fluxos gravam avisos em uma fila persistente no PostgreSQL.
+Com `APP_PUSH_ENABLED=true`, o backend envia a fila ao Firebase Cloud Messaging.
+Os lembretes usam a hora local do aparelho e o vencimento específico do mês ou o
+dia recorrente, ajustado ao último dia do mês. Quitação e situação sem pagamento
+cancelam lembretes. Os avisos indicam o vencimento quando conhecido e o texto do
+cadastro é genérico. A conexão e a permissão do Android afetam o recebimento.
 
 APK distribuído pelo site, com aviso e download manual das atualizações.
 Preservar `br.com.minhaobra.app` e a chave de assinatura existente; jamais

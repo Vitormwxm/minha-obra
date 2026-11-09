@@ -32,6 +32,7 @@ public final class MainActivity extends Activity {
     private static final String APP_HOST = BuildConfig.APP_HOST;
     private static final String START_URL = "https://" + APP_HOST + "/assets/index.html";
     private WebView webView;
+    private NotificationBridge notificationBridge;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,6 +85,7 @@ public final class MainActivity extends Activity {
         WebView.setWebContentsDebuggingEnabled(
                 (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0);
         webView.setWebViewClient(new LocalContentClient());
+        notificationBridge = NotificationBridge.attach(this, webView);
         container.addView(webView, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         setContentView(container);
@@ -94,14 +96,14 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private static boolean hasAppOrigin(Uri uri) {
+    static boolean hasAppOrigin(Uri uri) {
         return uri != null && "https".equalsIgnoreCase(uri.getScheme())
                 && APP_HOST.equalsIgnoreCase(uri.getHost())
                 && (APP_HOST.equalsIgnoreCase(uri.getEncodedAuthority())
                     || (APP_HOST + ":443").equalsIgnoreCase(uri.getEncodedAuthority()));
     }
 
-    private static boolean isTrustedPage(String url) {
+    static boolean isTrustedPage(String url) {
         if (url == null) return false;
         Uri uri = Uri.parse(url);
         return hasAppOrigin(uri) && "/assets/index.html".equals(uri.getPath());
@@ -201,10 +203,18 @@ public final class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         if (webView != null) webView.onResume();
+        if (notificationBridge != null) notificationBridge.refresh();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (notificationBridge != null) notificationBridge.permissionsResult(requestCode);
     }
 
     @Override
     protected void onDestroy() {
+        if (notificationBridge != null) notificationBridge.close();
         if (webView != null) {
             webView.stopLoading();
             webView.destroy();

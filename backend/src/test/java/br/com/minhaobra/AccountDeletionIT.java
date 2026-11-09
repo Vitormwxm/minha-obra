@@ -1,6 +1,7 @@
 package br.com.minhaobra;
 
 import br.com.minhaobra.repository.AccountRepository;
+import br.com.minhaobra.repository.NotificationDeviceRepository;
 import br.com.minhaobra.security.SecretCrypto;
 import br.com.minhaobra.security.Totp;
 import java.net.CookieManager;
@@ -47,6 +48,7 @@ class AccountDeletionIT {
     @LocalServerPort int port;
     @Autowired JdbcTemplate jdbc;
     @Autowired AccountRepository accounts;
+    @Autowired NotificationDeviceRepository devices;
     @Autowired PasswordEncoder passwords;
     @Autowired SecretCrypto crypto;
     @Autowired Totp totp;
@@ -138,6 +140,7 @@ class AccountDeletionIT {
         assertStatus(200, admin.mutate("POST", "/api/admin/users/" + ownerId + "/approve", Map.of("version", 0)));
         owner.login(username);
         assertStatus(200, owner.mutate("PUT", NOTIFICATIONS, notificationInput()));
+        devices.register(UUID.randomUUID(), ownerId, 0, "fixture-device-to-delete", "America/Fortaleza");
         assertStatus(200, owner.mutate("PUT", FINANCING, financing(null)));
         assertStatus(200, owner.mutate("PUT", MONTH, month()));
         UUID financingId = jdbc.queryForObject("SELECT id FROM financing WHERE owner_id=?", UUID.class, ownerId);
@@ -170,6 +173,7 @@ class AccountDeletionIT {
         assertEquals(0, count("SELECT count(*) FROM app_account WHERE id=?", ownerId));
         assertEquals(0, count("SELECT count(*) FROM account_deletion_request WHERE account_id=?", ownerId));
         assertEquals(0, count("SELECT count(*) FROM notification_preference WHERE account_id=?", ownerId));
+        assertEquals(0, count("SELECT count(*) FROM notification_device WHERE account_id=?", ownerId));
         assertEquals(0, count("SELECT count(*) FROM financing WHERE owner_id=?", ownerId));
         assertEquals(0, count("SELECT count(*) FROM finance_month WHERE financing_id=?", financingId));
         assertEquals(0, count("SELECT count(*) FROM finance_payment WHERE financing_id=?", financingId));
@@ -235,6 +239,27 @@ class AccountDeletionIT {
         assertStatus(200, owner.mutate("POST", REQUEST, null));
         assertError(409, "ACCOUNT_DELETION_PENDING", owner.mutate("PUT", NOTIFICATIONS, input));
         assertEquals(saved, body(200, owner.get(NOTIFICATIONS)));
+    }
+
+    @Test
+    void deviceRevocationIsOwnedByTheAuthenticatedAccount() throws Exception {
+        Browser owner = loginFixture("device_owner", "USER");
+        Browser other = loginFixture("device_other", "USER");
+        UUID ownerId = jdbc.queryForObject("SELECT id FROM app_account WHERE username='device_owner'", UUID.class);
+        UUID installation = UUID.randomUUID();
+        String path = "/api/notifications/devices/" + installation;
+        String token = "fixture-token-" + "a".repeat(3000);
+        var input = Map.of("token", token, "timeZone", "America/Fortaleza");
+        assertStatus(403, owner.send("PUT", path, input, null, false));
+        assertError(503, "PUSH_UNAVAILABLE", owner.mutate("PUT", path, input));
+
+        devices.register(installation, ownerId, 0, token, "America/Fortaleza");
+        devices.register(installation, ownerId, 0, token, "America/Fortaleza");
+        assertStatus(204, other.mutate("DELETE", path, null));
+        assertEquals(1, count("SELECT count(*) FROM notification_device WHERE installation_id=?", installation));
+        assertStatus(204, owner.send("POST", "/api/auth/logout", null, null, true, installation));
+        assertEquals(0, count("SELECT count(*) FROM notification_device WHERE installation_id=?", installation));
+        assertStatus(401, owner.get(FINANCE));
     }
 
     private static Map<String, Object> notificationInput() {
@@ -329,6 +354,11 @@ class AccountDeletionIT {
         }
 
         HttpResponse<String> send(String method, String path, Object payload, UUID key, boolean csrf) throws Exception {
+            return send(method, path, payload, key, csrf, null);
+        }
+
+        HttpResponse<String> send(String method, String path, Object payload, UUID key, boolean csrf,
+                UUID installation) throws Exception {
             var request = request(path);
             if (csrf) {
                 assertStatus(200, get("/api/auth/csrf"));
@@ -339,6 +369,9 @@ class AccountDeletionIT {
             }
             if (key != null) {
                 request.header("Idempotency-Key", key.toString());
+            }
+            if (installation != null) {
+                request.header("X-Notification-Installation", installation.toString());
             }
             var publisher = payload == null ? HttpRequest.BodyPublishers.noBody()
                     : HttpRequest.BodyPublishers.ofString(json.writeValueAsString(payload));

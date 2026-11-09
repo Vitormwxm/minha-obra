@@ -8,18 +8,21 @@ import { AdminAccounts } from './admin-accounts';
 import { AdminDeletions } from './admin-deletions';
 import { Finance } from './finance';
 import { HomeArt } from './home-art';
+import { NotificationDevice } from './notification-device';
+import { NotificationDeviceControls } from './notification-device-controls';
 import { PublicProjection } from './public-projection';
 import { ReminderPreferences } from './reminder-preferences';
 import { normalizedUsername, OperationKey, passwordProblem, validUsername } from './security-input';
 
 @Component({
   selector: 'app-root',
-  imports: [ReactiveFormsModule, AccountDeletion, AdminAccounts, AdminDeletions, Finance, HomeArt, PublicProjection, ReminderPreferences],
+  imports: [ReactiveFormsModule, AccountDeletion, AdminAccounts, AdminDeletions, Finance, HomeArt, PublicProjection, ReminderPreferences, NotificationDeviceControls],
   styleUrl: './app.css',
   templateUrl: './app.html',
 })
 export class App implements OnInit {
   private readonly api = inject(AccountsApi);
+  private readonly notifications = inject(NotificationDevice);
   private readonly forms = inject(FormBuilder).nonNullable;
   private readonly registrationKey = new OperationKey();
   readonly isAndroidApp = /MinhaObraAndroid\//.test(navigator.userAgent);
@@ -83,7 +86,7 @@ export class App implements OnInit {
         this.applySession(await this.api.me());
       } catch (error) {
         if (!(error instanceof HttpErrorResponse && error.status === 401)) throw error;
-        this.session.set(null);
+        this.setSession(null);
       }
     } catch (error) {
       this.message.set(apiMessage(error, 'O servidor não respondeu. Tente novamente em instantes.'));
@@ -253,10 +256,12 @@ export class App implements OnInit {
     if (this.busy() || this.workspaceBusy()) return;
     this.begin();
     try {
-      await this.api.logout();
+      await this.api.logout(await this.notifications.prepareLogout());
+      await this.notifications.finishLogout(true);
       this.clearSession();
       this.notice.set('Você saiu da sua conta.');
     } catch (error) {
+      await this.notifications.finishLogout(false);
       await this.handleAuthenticatedError(error);
     } finally {
       this.busy.set(false);
@@ -337,16 +342,21 @@ export class App implements OnInit {
     this.copied.set('');
   }
 
+  private setSession(session: AuthSession | null): void {
+    this.session.set(session);
+    this.notifications.sessionChanged(session);
+  }
+
   private applySession(session: AuthSession): void {
     this.accessPage.set('login');
-    this.session.set(session);
+    this.setSession(session);
     if (session.stage !== 'MFA_SETUP') this.mfaSetup.set(null);
     this.page.set('overview');
     this.focusTitle();
   }
 
   private clearSession(): void {
-    this.session.set(null);
+    this.setSession(null);
     this.workspaceBusy.set(false);
     this.mfaSetup.set(null);
     this.recoveryCodes.set([]);
@@ -381,7 +391,7 @@ export class App implements OnInit {
     if (error instanceof HttpErrorResponse && (error.status === 401 || error.status === 403)) {
       try {
         const session = await this.api.me();
-        this.session.set(session);
+        this.setSession(session);
       } catch (sessionError) {
         if (sessionError instanceof HttpErrorResponse && sessionError.status === 401) {
           this.sessionExpired();

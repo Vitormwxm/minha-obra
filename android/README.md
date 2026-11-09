@@ -1,7 +1,7 @@
 # Android Minha Obra
 
-Host Java com WebView para o build Angular. A atualização 1.1.0 usa
-`br.com.minhaobra.app` e `versionCode 3`.
+Host Java com WebView para o build Angular. A atualização 1.2.0 usa
+`br.com.minhaobra.app` e `versionCode 4`.
 
 ## Build de desenvolvimento
 
@@ -20,8 +20,13 @@ No PowerShell, use `.\gradlew.bat --no-daemon lintDebug assembleDebug`. O wrappe
 
 ## Build assinado
 
-Gere primeiro o build Angular. Na pasta Android, execute
-`./gradlew --no-daemon assembleRelease -PminhaObraSigningFile=/caminho/privado/signing.properties`.
+Gere primeiro o build Angular. Na pasta Android, execute:
+
+```bash
+./gradlew --no-daemon assembleRelease \
+  -PminhaObraSigningFile=/caminho/privado/signing.properties \
+  -PminhaObraFirebaseFile=/caminho/google-services.json
+```
 No PowerShell, use `.\gradlew.bat`. O arquivo privado deve conter
 `storeFile`, `storePassword`, `keyAlias` e `keyPassword`. Um caminho
 relativo em `storeFile` parte da pasta do arquivo de propriedades.
@@ -30,7 +35,21 @@ Guarde a chave original e as propriedades em armazenamento privado fora do Git.
 Antes de distribuir, use `apksigner verify --print-certs` no APK novo e no
 APK anterior. Confirme que o SHA-256 do certificado de assinatura coincide.
 A saída assinada é `app/build/outputs/apk/release/app-release.apk`.
-A pipeline continua gerando o APK de depuração para validar cada alteração.
+A configuração Android é baixada em Configurações do projeto no Firebase.
+O build gera os recursos do SDK a partir do cliente com pacote
+`br.com.minhaobra.app`. Mantenha o arquivo fora do Git. A pipeline gera o APK
+de depuração sem a configuração e valida o código do app.
+
+## Notificações
+
+No Android, entre na conta e ative os avisos no aparelho. Usuários encontram o
+controle em Lembretes de pagamento. Administradores usam a Visão geral para
+receber avisos de solicitações de acesso. Cada aparelho tem seu próprio vínculo.
+Ao sair da conta, o aplicativo desativa os avisos nesse aparelho.
+
+Em um teste com Firebase ativo no servidor, confirme o recebimento em segundo
+plano, a desativação, a troca de conta e o uso no Android 13 ou mais recente
+com a permissão concedida. [Guia de notificações do Firebase](https://firebase.google.com/docs/cloud-messaging/android/get-started?hl=pt-br)
 
 ## Conteúdo e origem
 

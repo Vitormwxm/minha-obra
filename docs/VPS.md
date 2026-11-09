@@ -141,6 +141,23 @@ JVM para módulos e consumidor; frontend estático servido no Nginx. Nenhum
 build de aplicação ocorre na VPS. Imagens, logs Kafka e logs Docker têm limites;
 espaço realmente liberado será medido após a retirada, sem estimativa garantida.
 
+## Envio de avisos Android
+
+Habilite a API Firebase Cloud Messaging v1 no projeto Firebase. Use uma conta
+de serviço dedicada com o papel `roles/firebasecloudmessaging.admin` no mesmo
+projeto. A credencial do servidor é separada da configuração do APK.
+
+Guarde a credencial JSON na VPS em um diretório privado com modo `0700`, por
+exemplo `/var/www/apps/minha-obra/push-secrets`. O backend precisa ler o arquivo
+como UID `10001`. A montagem do arquivo no container é somente leitura.
+Configure `APP_PUSH_ENABLED`, `APP_PUSH_PROJECT_ID` e
+`APP_PUSH_CREDENTIALS_HOST_FILE` no `.env` privado e aplique a release pelo
+fluxo de deploy. A autenticação da API usa a credencial montada e o escopo
+`firebase.messaging`.
+
+[Autorização da API HTTP v1](https://firebase.google.com/docs/cloud-messaging/send/v1-api)
+e [papéis do Cloud Messaging](https://docs.cloud.google.com/iam/docs/roles-permissions/firebasecloudmessaging).
+
 ## Backups da plataforma nova
 
 ### Cópia manual na VPS
@@ -173,7 +190,9 @@ com a estrutura, para que uma recuperação exija novo login.
   backup=$(mktemp -d "$HOME/minha-obra-backups/$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX")
   "${compose[@]}" "${args[@]}" exec -T postgres pg_dump --username=postgres \
     --dbname=minhaobra --no-password --format=custom --compress=1 --schema=minhaobra \
-    --exclude-table-data='minhaobra.spring_session*' > "$backup/postgres.dump.part"
+    --exclude-table-data='minhaobra.spring_session*' \
+    --exclude-table-data='minhaobra.notification_device' \
+    --exclude-table-data='minhaobra.notification_delivery' > "$backup/postgres.dump.part"
   test -s "$backup/postgres.dump.part"
   "${compose[@]}" "${args[@]}" exec -T postgres pg_restore --list < "$backup/postgres.dump.part" >/dev/null
   mv "$backup/postgres.dump.part" "$backup/postgres.dump"
@@ -183,6 +202,9 @@ com a estrutura, para que uma recuperação exija novo login.
   printf 'Backup conferido em %s\n' "$backup"
 )
 ```
+
+Os vínculos de aparelhos e a fila de avisos entram apenas com a estrutura. Os
+aparelhos voltam a se vincular quando abrem o aplicativo após a recuperação.
 
 Guarde o diretório concluído em armazenamento privado e criptografado fora
 da VPS. Ele contém dados financeiros e credenciais, inclusive a chave que

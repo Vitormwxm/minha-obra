@@ -79,9 +79,10 @@ senha lida sem eco por Console, transação com lock, somente quando não há ad
 Não promover/resetar usuário existente ao iniciar o servidor. Documentar comando
 exato; se CLI isolada exigir ajuste, alinhar antes de mudar esse contrato.
 
-Ações de conta gravam outbox/auditoria na mesma transação, sem segredos. Kafka
-recebe eventos técnicos de conta; notificações FCM e lembretes são entrega futura.
-Não colocar senha/segredo/token de recuperação no payload do evento.
+Ações de conta gravam outbox e auditoria na mesma transação. Kafka recebe os
+eventos técnicos da conta. Com o envio Android habilitado, o evento de nova
+solicitação agenda um aviso genérico nos aparelhos autorizados dos admins.
+Os eventos contêm IDs e metadados, sem credenciais.
 
 Interface Angular/Poppins responsiva com solicitação, login, troca obrigatória
 após redefinição, configuração MFA, códigos de recuperação, área inicial,
