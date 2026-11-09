@@ -137,6 +137,7 @@ services:
     volumes:
       - /etc/letsencrypt:/etc/nginx/ssl:ro
       - /var/www/certbot:/var/www/certbot:ro
+      - /var/www/apps/minha-obra/downloads:/var/www/minhaobra-downloads:ro
     networks: [edge]
     healthcheck:
       test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1/nginx-health']

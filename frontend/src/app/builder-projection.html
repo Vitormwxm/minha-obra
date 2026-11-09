@@ -1,0 +1,75 @@
+<section [attr.aria-busy]="busy()">
+  @if (error()) {
+    <div class="alert error" role="alert"><p>{{ error() }}</p></div>
+  }
+  @if (deliveryMonth() < startMonth()) {
+    <p class="inline-note">A entrega prevista é anterior ao mês atual.</p>
+    <button type="button" class="secondary-button builder-back" (click)="back.emit()">Voltar à minha obra</button>
+  } @else {
+    <form class="builder-panel" [formGroup]="form" (ngSubmit)="simulate()" (input)="invalidate()">
+      <fieldset [disabled]="busy()">
+        <legend>Parcelas por mês de vencimento</legend>
+        <p class="builder-note">Informe o valor base de cada mês até {{ monthLabel(deliveryMonth()) }}. Se houver reajuste no contrato, marque a parcela como indexada.</p>
+        <div formArrayName="installments">
+          @for (row of installments.controls; track row; let i = $index) {
+            <div class="builder-row" [formGroupName]="i">
+              <div class="field"><label [for]="'builder-month-' + i">Vencimento</label><input [id]="'builder-month-' + i" type="month" formControlName="month" [min]="startMonth()" [max]="deliveryMonth()" /></div>
+              <div class="field"><label [for]="'builder-base-' + i">Valor base</label><input [id]="'builder-base-' + i" formControlName="base" inputmode="decimal" maxlength="22" placeholder="R$ 0,00" /></div>
+              <label class="check-label"><input type="checkbox" formControlName="indexed" /> Indexada pelo INCC</label>
+              <button type="button" class="text-button" (click)="removeInstallment(i)" [disabled]="installments.length <= 1" [attr.aria-label]="'Remover parcela ' + (i + 1)">Remover</button>
+            </div>
+          }
+        </div>
+        <button id="builder-add" type="button" class="secondary-button" (click)="addInstallment()" [disabled]="installments.length >= limit">Adicionar parcela</button>
+
+        <label class="check-label"><input type="checkbox" formControlName="useIncc" /> Configurar o INCC das parcelas indexadas</label>
+        @if (form.controls.useIncc.value) {
+          <div class="incc-fields">
+            <div class="field">
+              <label for="builder-incc-variant">Versão do índice</label>
+              <select id="builder-incc-variant" formControlName="variant"><option value="M">INCC-M</option><option value="DI">INCC-DI</option><option value="10">INCC-10</option></select>
+            </div>
+            <div class="field"><label for="builder-incc-base">Mês-base do contrato</label><input id="builder-incc-base" formControlName="baseMonth" type="month" /></div>
+            <div class="field"><label for="builder-incc-interval">Reajuste a cada quantos meses?</label><input id="builder-incc-interval" formControlName="interval" inputmode="numeric" maxlength="3" /></div>
+            <div class="field"><label for="builder-incc-lag">Defasagem do índice em meses</label><input id="builder-incc-lag" formControlName="lag" inputmode="numeric" maxlength="2" /></div>
+            <div class="field"><label for="builder-incc-rate">INCC projetado (% ao mês)</label><input id="builder-incc-rate" formControlName="rate" inputmode="decimal" maxlength="11" placeholder="Ex.: 0,35" /></div>
+          </div>
+        }
+        <p class="builder-note">A taxa mensal é uma hipótese informada por você. Sem a configuração ou a taxa, a parcela indexada aparece pelo valor base, com o reajuste pendente.</p>
+      </fieldset>
+
+      <div class="builder-actions">
+        <button type="button" class="secondary-button" (click)="back.emit()" [disabled]="busy()">Voltar à minha obra</button>
+        <button type="submit" class="primary-button" [disabled]="busy()">{{ busy() ? 'Calculando…' : 'Calcular parcelas' }}</button>
+      </div>
+    </form>
+  }
+
+  @if (result(); as data) {
+    <section class="builder-panel" aria-labelledby="builder-result">
+      <h2 id="builder-result" tabindex="-1">Projeção da construtora</h2>
+      <p class="builder-total">Restante estimado <strong>{{ amount(data.remainingCents) }}</strong></p>
+      @if (data.remainingCents === null) {
+        <p class="builder-note">Subtotal mínimo conhecido {{ amount(data.knownSubtotalCents) }}. O total depende de informações pendentes.</p>
+      }
+      <div class="builder-scroll" role="region" aria-label="Parcelas projetadas da construtora" tabindex="0">
+        <table>
+          <thead><tr><th scope="col">Mês</th><th scope="col">Critério</th><th scope="col">Valor base</th><th scope="col">Projetado</th><th scope="col">Pago</th><th scope="col">Restante</th></tr></thead>
+          <tbody>
+            @for (row of data.rows; track row.month) {
+              <tr>
+                <th scope="row">{{ monthLabel(row.month) }}</th>
+                <td>{{ row.settled ? 'Encerrado' : indexLabels[row.indexStatus] }}</td>
+                <td>{{ amount(row.baseCents) }}</td>
+                <td>{{ amount(row.projectedCents) }}</td>
+                <td>{{ amount(row.paidCents) }}</td>
+                <td>{{ amount(row.remainingCents) }} @if (!row.paymentAllocationKnown) { <small>Confira os encargos de atraso</small> }</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="builder-note">Os pagamentos já registrados são considerados separadamente das parcelas projetadas.</p>
+    </section>
+  }
+</section>

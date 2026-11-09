@@ -8,11 +8,13 @@ import { AdminAccounts } from './admin-accounts';
 import { AdminDeletions } from './admin-deletions';
 import { Finance } from './finance';
 import { HomeArt } from './home-art';
+import { PublicProjection } from './public-projection';
+import { ReminderPreferences } from './reminder-preferences';
 import { normalizedUsername, OperationKey, passwordProblem, validUsername } from './security-input';
 
 @Component({
   selector: 'app-root',
-  imports: [ReactiveFormsModule, AccountDeletion, AdminAccounts, AdminDeletions, Finance, HomeArt],
+  imports: [ReactiveFormsModule, AccountDeletion, AdminAccounts, AdminDeletions, Finance, HomeArt, PublicProjection, ReminderPreferences],
   styleUrl: './app.css',
   templateUrl: './app.html',
 })
@@ -23,12 +25,13 @@ export class App implements OnInit {
   readonly isAndroidApp = /MinhaObraAndroid\//.test(navigator.userAgent);
   readonly session = signal<AuthSession | null>(null);
   readonly starting = signal(true);
+  readonly apkAvailable = signal(false);
   readonly busy = signal(false);
   readonly workspaceBusy = signal(false);
   readonly message = signal('');
   readonly notice = signal('');
-  readonly page = signal<'overview' | 'accounts' | 'finance' | 'deletion' | 'deletions'>('overview');
-  readonly accessPage = signal<'login' | 'register' | 'requested'>('login');
+  readonly page = signal<'overview' | 'accounts' | 'finance' | 'deletion' | 'deletions' | 'reminders'>('overview');
+  readonly accessPage = signal<'login' | 'register' | 'requested' | 'projection'>('login');
   readonly changingPassword = signal(false);
   readonly showPassword = signal(false);
   readonly recoveryMode = signal(false);
@@ -54,7 +57,22 @@ export class App implements OnInit {
   });
   readonly mfaForm = this.forms.group({ code: ['', Validators.required] });
 
-  ngOnInit(): void { void this.start(); }
+  ngOnInit(): void {
+    void this.start();
+    if (!this.isAndroidApp) void this.checkApk();
+  }
+
+  private async checkApk(): Promise<void> {
+    try {
+      const response = await fetch('/downloads/minha-obra.apk', {
+        method: 'HEAD', credentials: 'omit', cache: 'no-store',
+      });
+      this.apkAvailable.set(response.ok
+        && response.headers.get('Content-Type') === 'application/vnd.android.package-archive');
+    } catch {
+      this.apkAvailable.set(false);
+    }
+  }
 
   async start(): Promise<void> {
     this.starting.set(true);
@@ -101,8 +119,8 @@ export class App implements OnInit {
     }
   }
 
-  showAccessPage(page: 'login' | 'register'): void {
-    if (this.busy()) return;
+  showAccessPage(page: 'login' | 'register' | 'projection'): void {
+    if (this.busy() || (this.isAndroidApp && page === 'projection')) return;
     this.setAccessPage(page);
   }
 
@@ -250,7 +268,7 @@ export class App implements OnInit {
     this.message.set('Sua sessão terminou. Entre novamente para continuar.');
   }
 
-  showWorkspacePage(page: 'overview' | 'accounts' | 'finance' | 'deletion' | 'deletions'): void {
+  showWorkspacePage(page: 'overview' | 'accounts' | 'finance' | 'deletion' | 'deletions' | 'reminders'): void {
     if (this.workspaceBusy()) return;
     this.page.set(page);
     this.focusTitle();
@@ -347,7 +365,7 @@ export class App implements OnInit {
     this.focusTitle();
   }
 
-  private setAccessPage(page: 'login' | 'register' | 'requested'): void {
+  private setAccessPage(page: 'login' | 'register' | 'requested' | 'projection'): void {
     this.loginForm.reset();
     this.registrationForm.reset();
     this.registrationKey.clear();

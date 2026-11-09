@@ -24,6 +24,8 @@
 
     @if (starting()) {
       <section class="loading-state" aria-live="polite" aria-busy="true"><span class="spinner" aria-hidden="true"></span><h1 tabindex="-1">Preparando seu acesso</h1><p>Só um instante.</p></section>
+    } @else if (!session() && accessPage() === 'projection' && !isAndroidApp) {
+      <app-public-projection (back)="showAccessPage('login')" />
     } @else if (!session() && accessPage() === 'register') {
       <section class="centered-flow" aria-labelledby="registration-title">
         <div class="flow-heading">
@@ -102,6 +104,9 @@
             </button>
           </form>
           <button class="secondary-button full-width secondary-action" type="button" (click)="showAccessPage('register')" [disabled]="busy()">Solicitar conta</button>
+          @if (!isAndroidApp) {
+            <button class="text-button full-width secondary-action" type="button" (click)="showAccessPage('projection')" [disabled]="busy()">Simular evolução de obra sem entrar</button>
+          }
           <div class="access-help"><strong>Esqueceu a senha?</strong><p>Peça uma redefinição ao administrador.</p></div>
           @if (message()) { <button class="text-button retry" type="button" (click)="start()" [disabled]="busy()">Verificar conexão novamente</button> }
         </div>
@@ -177,6 +182,8 @@
           <app-admin-deletions (expired)="sessionExpired()" (processing)="workspaceBusy.set($event)" />
         } @else if (page() === 'deletion' && current.user.role === 'USER') {
           <app-account-deletion [webDownloads]="!isAndroidApp" (expired)="sessionExpired()" (processing)="workspaceBusy.set($event)" />
+        } @else if (page() === 'reminders' && current.user.role === 'USER') {
+          <app-reminder-preferences (expired)="sessionExpired()" (processing)="workspaceBusy.set($event)" />
         } @else if (page() === 'finance' && current.stage === 'AUTHENTICATED') {
           <app-finance (expired)="sessionExpired()" (processing)="workspaceBusy.set($event)" />
         } @else {
@@ -191,6 +198,7 @@
               <div class="account-settings-actions">
                 <button class="secondary-button" type="button" (click)="openPasswordChange()" [disabled]="workspaceBusy()">Alterar minha senha</button>
                 @if (current.user.role === 'USER') {
+                  <button class="secondary-button" type="button" (click)="showWorkspacePage('reminders')" [disabled]="workspaceBusy()">Lembretes de pagamento</button>
                   <button class="secondary-button" type="button" (click)="showWorkspacePage('deletion')" [disabled]="workspaceBusy()">Exclusão da conta</button>
                 }
               </div>
@@ -200,5 +208,12 @@
       </div>
     }
   </main>
-  <footer class="app-footer"><span>Minha Obra</span><span>Construindo o próximo passo.</span></footer>
+  <footer class="app-footer">
+    <span>Minha Obra</span>
+    @if (apkAvailable()) {
+      <a class="text-button" href="/downloads/minha-obra.apk" download>Baixar app Android</a>
+    } @else {
+      <span>Construindo o próximo passo.</span>
+    }
+  </footer>
 </div>

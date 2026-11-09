@@ -5,6 +5,23 @@ if (minhaObraHost.length() > 253 || !minhaObraHost.matches('(?:[a-z0-9](?:[a-z0-
     throw new GradleException('minhaObraHost must contain only a valid HTTPS domain, without a path or port.')
 }
 
+def signingFile = providers.gradleProperty('minhaObraSigningFile').map { rootProject.file(it) }.orNull
+def signingValues = new Properties()
+def signingStore = null
+if (signingFile != null) {
+    if (!signingFile.isFile()) {
+        throw new GradleException('O arquivo privado de assinatura informado não existe.')
+    }
+    signingFile.withInputStream { signingValues.load(it) }
+    if (['storeFile', 'storePassword', 'keyAlias', 'keyPassword'].any { signingValues.getProperty(it)?.isBlank() != false }) {
+        throw new GradleException('Complete os campos obrigatórios no arquivo privado de assinatura.')
+    }
+    signingStore = signingFile.parentFile.toPath().resolve(signingValues.getProperty('storeFile')).normalize().toFile()
+    if (!signingStore.isFile()) {
+        throw new GradleException('O arquivo de chaves indicado em storeFile não existe.')
+    }
+}
+
 android {
     namespace 'br.com.minhaobra.app'
     compileSdk 35
@@ -13,16 +30,28 @@ android {
         applicationId 'br.com.minhaobra.app'
         minSdk 26
         targetSdk 35
-        versionCode 2
-        versionName '1.0.1'
+        versionCode 3
+        versionName '1.1.0'
         buildConfigField 'String', 'APP_HOST', '"' + minhaObraHost + '"'
     }
 
     buildFeatures { buildConfig true }
 
+    signingConfigs {
+        if (signingStore != null) {
+            release {
+                storeFile signingStore
+                storePassword signingValues.getProperty('storePassword')
+                keyAlias signingValues.getProperty('keyAlias')
+                keyPassword signingValues.getProperty('keyPassword')
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
+            if (signingStore != null) signingConfig signingConfigs.release
         }
     }
 
@@ -53,3 +82,16 @@ tasks.register('syncWebAssets', Sync) {
 }
 
 tasks.named('preBuild').configure { dependsOn 'syncWebAssets' }
+
+tasks.register('requireReleaseSigning') {
+    group = 'verification'
+    description = 'Requires the original signing key for a release build.'
+    doLast {
+        if (signingStore == null) {
+            throw new GradleException('Informe -PminhaObraSigningFile com o caminho do arquivo privado de assinatura.')
+        }
+    }
+}
+tasks.matching { it.name == 'packageRelease' || it.name == 'packageReleaseBundle' }.configureEach {
+    dependsOn 'requireReleaseSigning'
+}

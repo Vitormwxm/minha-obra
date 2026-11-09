@@ -1,6 +1,7 @@
 # Android Minha Obra
 
-Host Java com WebView para o build Angular local. Mantém `br.com.minhaobra.app`, `versionName 1.0.1` e `versionCode 2` como base técnica. Uma próxima release funcional deve avançar a versão e o código.
+Host Java com WebView para o build Angular. A atualização 1.1.0 usa
+`br.com.minhaobra.app` e `versionCode 3`.
 
 ## Build de desenvolvimento
 
@@ -17,16 +18,29 @@ cd ../android
 
 No PowerShell, use `.\gradlew.bat --no-daemon lintDebug assembleDebug`. O wrapper contém o checksum SHA256 da distribuição Gradle. `verifyWebAssets` falha claramente se `../frontend/dist/minha-obra/browser/index.html` não existir; `syncWebAssets` sincroniza esse diretório antes de `preBuild`. A saída debug é `app/build/outputs/apk/debug/app-debug.apk`, assinada automaticamente com a chave debug local padrão do Android, sem a chave de produção.
 
+## Build assinado
+
+Gere primeiro o build Angular. Na pasta Android, execute
+`./gradlew --no-daemon assembleRelease -PminhaObraSigningFile=/caminho/privado/signing.properties`.
+No PowerShell, use `.\gradlew.bat`. O arquivo privado deve conter
+`storeFile`, `storePassword`, `keyAlias` e `keyPassword`. Um caminho
+relativo em `storeFile` parte da pasta do arquivo de propriedades.
+Guarde a chave original e as propriedades em armazenamento privado fora do Git.
+
+Antes de distribuir, use `apksigner verify --print-certs` no APK novo e no
+APK anterior. Confirme que o SHA-256 do certificado de assinatura coincide.
+A saída assinada é `app/build/outputs/apk/release/app-release.apk`.
+A pipeline continua gerando o APK de depuração para validar cada alteração.
+
 ## Conteúdo e origem
 
-A aplicação carrega somente `https://appassets.androidplatform.net/assets/index.html` e os arquivos do APK, com MIME adequado para JavaScript, CSS, fontes e imagens. O frontend usa base relativa; roteamento futuro deve preservar essa origem, preferindo hash no APK.
+O APK carrega os arquivos Angular empacotados pelo endereço HTTPS
+`https://focuslabapp.com/assets/index.html`. O manifest concede acesso à rede
+e a WebView permite chamadas apenas para a API na mesma origem. A API usa o
+login e os cookies de sessão do serviço. Arquivos locais, cookies de terceiros
+e conteúdo misto permanecem bloqueados.
 
-O manifest não solicita INTERNET. O host bloqueia requisições, navegação e conteúdo externo; acesso a arquivos/content URI e conteúdo misto ficam desabilitados. Não há bridges JavaScript nativas, login ou FCM nesta etapa. A política de conteúdo admite scripts locais, estilos locais/inline e a base local exigida pelo Angular; conexões externas continuam bloqueadas.
-
-## Origem da estrutura e limites
-
-Foram importados apenas wrapper, configuração pública, manifest, recursos e fonte Java da estrutura anterior. Não foram importados keystores, propriedades de assinatura, SDKs, caches, builds ou propriedades locais. O fonte Java foi reduzido ao host local; funções antigas de importação/exportação e impressão não fazem parte desta base.
-
-A pipeline executa lint e montagem debug, sem configurar assinatura de produção. Nenhuma chave de release é necessária ou está armazenada aqui. Esta etapa não publica APK na loja nem altera a instalação existente.
-
-Antes de uma release, fazer QA em aparelho/emulador com WebView atualizado: abertura offline, renderização das fontes, telas pequenas, barras do sistema, rotação, voltar e restauração após pausa. Compilar e passar no lint não comprova esse comportamento em dispositivo. Ainda não há testes instrumentados; não tratar tarefas sem testes como cobertura.
+Valide a atualização sobre a versão anterior em um aparelho com WebView
+atualizado. Confira login, telas pequenas, navegação, rotação, retomada e
+telas que dependem da API. O lint e a verificação criptográfica do APK
+validam o build e a assinatura. [Assinatura no Android](https://developer.android.com/studio/publish/app-signing)

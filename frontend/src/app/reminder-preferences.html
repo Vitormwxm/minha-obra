@@ -1,0 +1,50 @@
+<section class="deletion" aria-labelledby="reminder-title" [attr.aria-busy]="loading() || busy()">
+  <span class="eyebrow">MINHA CONTA</span>
+  <h1 id="reminder-title" tabindex="-1">Lembretes de pagamento</h1>
+  <p class="deletion-lead">Defina como quer receber os avisos da CAIXA e da construtora no Android.</p>
+  <p class="inline-note">Você já pode salvar as preferências. A entrega no celular aguarda a ativação do Firebase.</p>
+  @if (error()) {
+    <div class="alert error" role="alert"><p>{{ error() }}</p></div>
+  }
+  @if (notice()) {
+    <div class="alert success" role="status"><p>{{ notice() }}</p></div>
+  }
+
+  @if (current()) {
+    <form class="deletion-panel" [formGroup]="form" (ngSubmit)="save()">
+      <fieldset class="reminder-fields" [disabled]="busy() || loading()">
+        <legend>Preferências</legend>
+        <label class="check-label"><input type="checkbox" formControlName="enabled" /> Quero receber lembretes quando o envio estiver disponível</label>
+        <div class="field">
+          <label for="reminder-time">Horário local do celular</label>
+          <input id="reminder-time" type="time" step="60" formControlName="time" />
+        </div>
+        <div class="field">
+          <label for="reminder-offsets">Dias de antecedência</label>
+          <input id="reminder-offsets" formControlName="offsets" placeholder="3, 1, 0" maxlength="40" aria-describedby="reminder-offsets-help" />
+          <small id="reminder-offsets-help">Separe os dias por vírgulas. Use 0 para o dia do vencimento.</small>
+        </div>
+        <div class="field">
+          <label for="reminder-caixa">Dia recorrente da CAIXA (opcional)</label>
+          <input id="reminder-caixa" formControlName="caixaDay" inputmode="numeric" maxlength="2" />
+        </div>
+        <div class="field">
+          <label for="reminder-builder">Dia recorrente da construtora (opcional)</label>
+          <input id="reminder-builder" formControlName="builderDay" inputmode="numeric" maxlength="2" />
+        </div>
+        <p class="deletion-lead">O vencimento informado no lançamento tem prioridade sobre o dia recorrente.</p>
+        <label class="check-label"><input type="checkbox" formControlName="afterDue" /> Avisar um dia após o vencimento em aberto</label>
+        <label class="check-label"><input type="checkbox" formControlName="weekly" /> Repetir semanalmente enquanto estiver em aberto</label>
+        <label class="check-label"><input type="checkbox" formControlName="showAmounts" /> Mostrar valores no aviso</label>
+      </fieldset>
+      <div class="deletion-actions">
+        <button type="submit" class="primary-button" [disabled]="busy() || loading()">Salvar preferências</button>
+        <button type="button" class="secondary-button" (click)="load()" [disabled]="busy() || loading()">Atualizar</button>
+      </div>
+    </form>
+  } @else if (loading()) {
+    <p role="status">Carregando preferências…</p>
+  } @else {
+    <button type="button" class="secondary-button" (click)="load()">Carregar preferências</button>
+  }
+</section>
