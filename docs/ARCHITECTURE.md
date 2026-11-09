@@ -88,8 +88,17 @@ A TR futura é uma hipótese editável. O usuário pode reaproveitar como
 hipótese o valor registrado no histórico. Pagamentos registrados reduzem
 o saldo a pagar projetado, e meses quitados entram com saldo a pagar zero.
 Campos em branco podem deixar a projeção parcial. Se o valor de um pagamento
-destinado à evolução for incerto, o subtotal usa o maior abatimento possível. Pagamentos da construtora
-e INCC são tratados separadamente.
+destinado à evolução for incerto, o subtotal usa o maior abatimento possível.
+O simulador público usa o mesmo motor com dados informados na tela de acesso.
+
+A projeção da construtora recebe um cenário com uma parcela por mês, fixa ou
+indexada. Os campos do INCC incluem versão, mês-base, periodicidade e defasagem.
+O cálculo aplica uma hipótese mensal informada pelo usuário aos meses elegíveis
+e considera pagamentos registrados. Parcelas indexadas com configuração
+pendente exibem o valor base e deixam o total restante parcial. A FGV publica
+resultados gerais e oferece a maior parte das séries detalhadas por contrato.
+[INCC no FGV IBRE](https://portalibre.fgv.br/estudos-e-pesquisas/indices-de-precos/incc).
+
 A versão web gera o PDF no navegador a partir do cenário calculado, com
 as hipóteses e os encargos por mês. O histórico de pagamentos pode ser
 baixado em CSV, com um arquivo para o resumo mensal e outro para os
@@ -123,7 +132,11 @@ e detalhada, PDF da projeção; sem importação de arquivos na primeira versão
 
 ## Notificações e Android
 
-FCM entrega os avisos processados via Kafka. Padrão configurável: 3/1/0 dias
+A conta pode salvar preferências de lembretes e dias recorrentes. A entrega
+ao celular ainda depende do cadastro Android no Firebase e da implementação
+do agendamento e envio. A tela identifica essa pendência.
+
+O fluxo previsto usa Kafka para processar os avisos e FCM para entregá-los. Padrão configurável: 3/1/0 dias
 antes, 9h local do celular; um dia após o vencimento e repetição semanal opcional
 desativada inicialmente. Quitação manual cancela avisos futuros; parcial mantém.
 Dia inexistente na recorrência usa o último dia do mês; data específica prevalece.

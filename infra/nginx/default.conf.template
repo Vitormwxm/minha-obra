@@ -31,6 +31,17 @@ server {
     add_header Referrer-Policy strict-origin-when-cross-origin always;
     add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
 
+    location = /downloads/minha-obra.apk {
+        alias /var/www/minhaobra-downloads/minha-obra.apk;
+        default_type application/vnd.android.package-archive;
+        expires -1;
+        add_header Content-Disposition 'attachment; filename="Minha-Obra.apk"' always;
+        add_header X-Content-Type-Options nosniff always;
+    }
+    location ^~ /downloads/ {
+        return 404;
+    }
+
     location = /healthz {
         access_log off;
         proxy_pass http://backend:8080/actuator/health/readiness;

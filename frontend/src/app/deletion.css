@@ -16,6 +16,10 @@
 .deletion-review { border-color: #e8cfc9; }
 .deletion-review input { max-width: 340px; }
 .deletion-link { color: #8e4238; }
+.reminder-fields { border: 0; margin: 0 0 18px; padding: 0; min-width: 0; }
+.reminder-fields legend { font-size: 16px; font-weight: 600; padding: 0; }
+.reminder-fields .field { max-width: 370px; }
+.reminder-fields .check-label { margin: 13px 0; }
 .deletion-danger { background: #8e4238; border-color: #8e4238; }
 .deletion-danger:hover:not(:disabled) { background: #77362e; border-color: #77362e; }
 @media (max-width: 520px) {

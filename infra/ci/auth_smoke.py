@@ -115,6 +115,19 @@ def latest_user(admin):
     return next(user for user in page["items"] if user["username"] == "ci_person")
 
 
+def assert_public_projection(origin, context):
+    anonymous = Client(origin, context)
+    body = {"releasedCents": 10_000_000, "financedCents": 15_000_000, "annualNominalRate": "12",
+            "monthlyTr": "1", "insuranceCents": 100, "feesCents": 200,
+            "startMonth": "2026-11", "endMonth": "2027-01"}
+    result = anonymous.request("POST", "/api/public/projection", body, csrf=False)
+    assert len(result["rows"]) == 3
+    assert result["rows"][0]["totalCents"] == 201_300
+    assert result["rows"][-1]["releasedCents"] == 15_000_000
+    assert not list(anonymous.cookies)
+    anonymous.request("GET", "/api/finance", expected=401)
+
+
 def assert_finance(person, admin):
     empty = {"financing": None, "months": [], "missingMonths": []}
     assert person.request("GET", "/api/finance") == empty
@@ -156,6 +169,22 @@ def assert_finance(person, admin):
     partial = person.request("POST", "/api/finance/projection", assumptions)
     assert partial["totalCents"] is None and partial["knownSubtotalCents"] > 0
     admin.request("POST", "/api/finance/projection", assumptions, expected=404)
+
+    builder = {
+        "installments": [
+            {"month": now.isoformat()[:7], "baseCents": 12_000, "indexed": False},
+            {"month": delivery.isoformat()[:7], "baseCents": 20_000, "indexed": True},
+        ],
+        "incc": {"variant": "M", "baseMonth": now.isoformat()[:7], "intervalMonths": 1,
+                 "lagMonths": 0, "monthlyRate": "1"},
+    }
+    result = person.request("POST", "/api/finance/builder-projection", builder)
+    assert result["remainingCents"] == 32_200
+    assert [row["indexStatus"] for row in result["rows"]] == ["FIXED", "PROJECTED"]
+    builder["incc"] = None
+    partial = person.request("POST", "/api/finance/builder-projection", builder)
+    assert partial["remainingCents"] is None and partial["knownSubtotalCents"] == 12_000
+    assert partial["rows"][1]["indexStatus"] == "PENDING"
     assert admin.request("GET", "/api/finance") == empty
 
 
@@ -178,6 +207,19 @@ def assert_events(compose):
     assert isinstance(event, dict) and event, "Kafka event is missing."
     assert not any(any(word in key.lower() for word in ("password", "secret", "recovery")) for key in event), \
         "Account events must not contain credentials."
+
+
+def assert_reminder_preferences(person):
+    path = "/api/notifications/preferences"
+    preferences = person.request("GET", path)
+    assert preferences["version"] == 0 and preferences["offsets"] == [3, 1, 0]
+    assert not preferences["enabled"] and preferences["time"] == "09:00"
+    preferences.update(enabled=True, caixaDay=31, time="08:30")
+    key = str(uuid.uuid4())
+    saved = person.request("PUT", path, preferences, key=key)
+    assert saved["version"] == 1 and saved["enabled"] and saved["caixaDay"] == 31
+    assert person.request("PUT", path, preferences, key=key) == saved
+    assert person.request("GET", path) == saved
 
 
 def assert_deletion(person, admin):
@@ -225,6 +267,7 @@ def main():
     compose = [args.compose, "-p", "minha-obra-ci", "--env-file", "/dev/null", "-f", args.file]
     context = ssl.create_default_context(cafile=args.ca)
     origin = "https://" + args.domain
+    assert_public_projection(origin, context)
     provisional, permanent, person_password, replacement, new_password = (
         f"{value:08d}" for value in secrets.SystemRandom().sample(range(100_000_000), 5)
     )
@@ -267,6 +310,7 @@ def main():
     assert person.request("POST", "/api/auth/login", login)["stage"] == "AUTHENTICATED"
     person.request("GET", "/api/account")
     assert_finance(person, admin)
+    assert_reminder_preferences(person)
     user = latest_user(admin)
     blocked = admin.request("POST", "/api/admin/users/" + user["id"] + "/block",
                             {"version": user["version"]}, key=str(uuid.uuid4()))

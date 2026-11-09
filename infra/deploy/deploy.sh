@@ -25,6 +25,10 @@ for dependency in docker python3 flock realpath; do
 done
 exec 9>"$base/.deploy.lock"
 flock -n 9 || fail 'Já existe um deploy em execução.'
+downloads="$base/downloads"
+[[ ! -L $downloads ]] || fail 'Diretório de downloads inesperado.'
+install -d -m 0755 "$downloads"
+[[ $(realpath -e "$downloads") == "$downloads" ]] || fail 'Caminho de downloads inesperado.'
 [[ -z ${DOCKER_HOST:-} ]] || fail 'DOCKER_HOST externo não é permitido.'
 docker_endpoint=$(docker context inspect --format '{{.Endpoints.docker.Host}}')
 case "$docker_endpoint" in

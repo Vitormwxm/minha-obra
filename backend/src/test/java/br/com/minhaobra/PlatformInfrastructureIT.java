@@ -26,6 +26,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PlatformInfrastructureIT {
 
     private static final String SCHEMA = "it_" + UUID.randomUUID().toString().replace("-", "");
+    private static final String PUBLIC_SCENARIO = """
+            {"releasedCents":10000000,"financedCents":15000000,"annualNominalRate":"12",
+             "monthlyTr":"1","insuranceCents":100,"feesCents":200,
+             "startMonth":"2026-11","endMonth":"2027-01"}
+            """;
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
             .build();
@@ -94,6 +99,37 @@ class PlatformInfrastructureIT {
     void keepsConfigurationEndpointsAndProductRoutesUnpublished() throws Exception {
         assertEquals(401, get("/actuator/env").statusCode());
         assertEquals(401, get("/api").statusCode());
+    }
+
+    @Test
+    void calculatesPublicProjectionWithoutSessionOrCsrfToken() throws Exception {
+        var response = project(PUBLIC_SCENARIO);
+        assertEquals(200, response.statusCode(), response.body());
+        assertEquals("no-store", response.headers().firstValue("Cache-Control").orElseThrow());
+        assertTrue(response.headers().allValues("Set-Cookie").isEmpty());
+        assertEquals("2026-11", JsonPath.read(response.body(), "$.rows[0].month"));
+        assertEquals((Integer) 201300, JsonPath.read(response.body(), "$.rows[0].totalCents"));
+        assertEquals((Integer) 15000000, JsonPath.read(response.body(), "$.rows[2].releasedCents"));
+        assertEquals(401, get("/api/public/projection").statusCode());
+        assertEquals(401, get("/api/finance").statusCode());
+    }
+
+    @Test
+    void rejectsInvalidPublicBalancesPeriodsAndPayloadSize() throws Exception {
+        assertEquals(400, project(PUBLIC_SCENARIO.replace("15000000", "9999999")).statusCode());
+        assertEquals(400, project(PUBLIC_SCENARIO.replace("2027-01", "2100-01")).statusCode());
+        assertEquals(400, project(PUBLIC_SCENARIO.replace("10000000", "10000000.5")).statusCode());
+        assertEquals(413, project(PUBLIC_SCENARIO + " ".repeat(4096)).statusCode());
+    }
+
+    private HttpResponse<String> project(String json) throws Exception {
+        int port = environment.getRequiredProperty("local.server.port", Integer.class);
+        var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/public/projection"))
+                .timeout(Duration.ofSeconds(5))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(json))
+                .build();
+        return HTTP.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     private HttpResponse<String> get(String path) throws Exception {

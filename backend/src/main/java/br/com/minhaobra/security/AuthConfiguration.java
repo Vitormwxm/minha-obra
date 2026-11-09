@@ -8,6 +8,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -19,6 +20,7 @@ import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfAuthenticationStrategy;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
 import org.springframework.security.web.authentication.session.CompositeSessionAuthenticationStrategy;
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
@@ -47,6 +49,19 @@ public class AuthConfiguration {
     @Bean SessionAuthenticationStrategy sessionAuthenticationStrategy(CookieCsrfTokenRepository csrf) {
         return new CompositeSessionAuthenticationStrategy(List.of(new ChangeSessionIdAuthenticationStrategy(),new CsrfAuthenticationStrategy(csrf)));
     }
+    @Bean
+    @Order(1)
+    SecurityFilterChain publicProjectionSecurity(HttpSecurity http, Clock clock) throws Exception {
+        http.securityMatcher(PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, "/api/public/projection"));
+        // This route calculates a scenario without reading or changing accounts or sessions.
+        http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+        http.requestCache(cache -> cache.disable());
+        http.csrf(csrf -> csrf.disable());
+        http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+        http.addFilterBefore(new PublicProjectionAccessFilter(clock), SecurityContextHolderFilter.class);
+        return http.build();
+    }
+
     @Bean SecurityFilterChain applicationSecurity(HttpSecurity http,AccountService accounts,Clock clock,
             CookieCsrfTokenRepository csrf,SecurityContextRepository context) throws Exception {
         http.formLogin(form->form.disable()).httpBasic(basic->basic.disable()).logout(logout->logout.disable());

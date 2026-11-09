@@ -143,8 +143,88 @@ espaço realmente liberado será medido após a retirada, sem estimativa garanti
 
 ## Backups da plataforma nova
 
-O operador escolheu backups **manuais semanais**. Documentar geração de dump
-consistente, conferência de retorno/arquivo e restauração em ambiente isolado.
-Proteger os dumps e a configuração privada; não colocá-los no Git. Ponto de
-recuperação corresponde ao último backup manual válido. Destino e retenção
-dessas cópias serão definidos pelo operador, sem agendamento automático nesta base.
+### Cópia manual na VPS
+
+Execute semanalmente como usuário de deploy, fora da janela de publicação.
+O arquivo em formato customizado inclui o esquema `minhaobra` e seus dados. As tabelas de sessão entram apenas
+com a estrutura, para que uma recuperação exija novo login.
+
+```bash
+(
+  set -euo pipefail
+  umask 077
+  unset DOCKER_CONTEXT
+  export DOCKER_HOST=unix:///var/run/docker.sock
+  app=/var/www/apps/minha-obra
+  read -r release_sha < "$app/.current-release"
+  [[ $release_sha =~ ^[0-9a-f]{40}$ ]]
+  release="$app/releases/$release_sha"
+  if docker compose version >/dev/null 2>&1; then
+    compose=(docker compose)
+  elif docker-compose version >/dev/null 2>&1; then
+    compose=(docker-compose)
+  else
+    echo 'Docker Compose indisponível.' >&2
+    exit 1
+  fi
+  args=(-p minha-obra --env-file "$app/.env" --env-file "$release/release.env" -f "$release/compose.prod.yml")
+  "${compose[@]}" "${args[@]}" config --quiet
+  install -d -m 700 "$HOME/minha-obra-backups"
+  backup=$(mktemp -d "$HOME/minha-obra-backups/$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX")
+  "${compose[@]}" "${args[@]}" exec -T postgres pg_dump --username=postgres \
+    --dbname=minhaobra --no-password --format=custom --compress=1 --schema=minhaobra \
+    --exclude-table-data='minhaobra.spring_session*' > "$backup/postgres.dump.part"
+  test -s "$backup/postgres.dump.part"
+  "${compose[@]}" "${args[@]}" exec -T postgres pg_restore --list < "$backup/postgres.dump.part" >/dev/null
+  mv "$backup/postgres.dump.part" "$backup/postgres.dump"
+  install -m 600 "$app/.env" "$backup/app.env"
+  install -m 600 "$release/release.json" "$backup/release.json"
+  (cd "$backup" && sha256sum postgres.dump app.env release.json > SHA256SUMS)
+  printf 'Backup conferido em %s\n' "$backup"
+)
+```
+
+Guarde o diretório concluído em armazenamento privado e criptografado fora
+da VPS. Ele contém dados financeiros e credenciais, inclusive a chave que
+protege o TOTP. O checksum confere a integridade da cópia. O ponto de
+recuperação é a data do último backup válido. A retenção dessas cópias é
+definida pelo operador. Kafka e certificados são administrados separadamente.
+
+### Ensaio de restauração fora da VPS
+
+Em uma estação Linux separada, com Docker local, execute dentro da cópia
+verificada. O teste usa um PostgreSQL 18 descartável, sem rede, volumes
+compartilhados, portas publicadas ou credenciais de produção.
+
+```bash
+(
+  set -euo pipefail
+  sha256sum --check --status SHA256SUMS
+  docker_local=(docker --host unix:///var/run/docker.sock)
+  image=postgres:18.6-alpine@sha256:300ebd02c6d4de9ee27ad7f6855d5d21b4d3a4a5117767c1197d284c635d9736
+  container=$("${docker_local[@]}" run --detach --rm --network none --memory=256m \
+    -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=minhaobra_restore "$image")
+  [[ $container =~ ^[0-9a-f]{64}$ ]]
+  trap '"${docker_local[@]}" stop "$container" >/dev/null' EXIT
+  for attempt in {1..60}; do
+    if "${docker_local[@]}" exec "$container" pg_isready -h 127.0.0.1 -U postgres -d minhaobra_restore >/dev/null; then
+      break
+    fi
+    sleep 1
+  done
+  "${docker_local[@]}" exec "$container" pg_isready -h 127.0.0.1 -U postgres -d minhaobra_restore >/dev/null
+  "${docker_local[@]}" exec -i "$container" pg_restore --username=postgres --dbname=minhaobra_restore \
+    --exit-on-error --single-transaction --no-owner --no-privileges < postgres.dump
+  "${docker_local[@]}" exec "$container" psql -U postgres -d minhaobra_restore -v ON_ERROR_STOP=1 \
+    -c 'SELECT count(*) AS contas FROM minhaobra.app_account' \
+    -c 'SELECT count(*) AS pagamentos FROM minhaobra.finance_payment' \
+    -c 'SELECT count(*) AS sessoes FROM minhaobra.spring_session'
+)
+```
+
+Confira as contagens e o número de sessões igual a zero. Foi validada uma
+restauração com PostgreSQL 18.6, dados fictícios e migrações V1 a V7.
+A recuperação real deve usar uma instância preparada para o papel
+`minhaobra` e o arquivo privado preservado, após conferir o backup isolado.
+[Documentação do pg_dump](https://www.postgresql.org/docs/18/app-pgdump.html)
+e [documentação do pg_restore](https://www.postgresql.org/docs/18/app-pgrestore.html).

@@ -1,0 +1,117 @@
+<section class="public-simulator" aria-labelledby="public-projection-title">
+  <header class="simulator-heading">
+    <div>
+      <span class="eyebrow">MINHA OBRA</span>
+      <h1 id="public-projection-title" tabindex="-1">Simular evolução de obra</h1>
+      <p>Estime os encargos da Caixa até o mês previsto de entrega, sem criar conta.</p>
+    </div>
+    <button class="secondary-button" type="button" (click)="back.emit()" [disabled]="busy()">Voltar para entrar</button>
+  </header>
+
+  <div class="simulator-layout">
+    <form class="simulator-card" [formGroup]="form" (ngSubmit)="simulate()" (input)="clearResult()" [attr.aria-busy]="busy()">
+      <h2>Dados da simulação</h2>
+      @if (error()) {
+        <div class="alert error" id="public-projection-error" role="alert" tabindex="-1"><p>{{ error() }}</p></div>
+      }
+      <fieldset [disabled]="busy()">
+        <div class="form-grid">
+          <div class="field">
+            <label for="public-projection-released">Saldo atual liberado</label>
+            <input id="public-projection-released" formControlName="released" inputmode="decimal" maxlength="24" placeholder="R$ 0,00" />
+          </div>
+          <div class="field">
+            <label for="public-projection-financed">Valor final do financiamento</label>
+            <input id="public-projection-financed" formControlName="financed" inputmode="decimal" maxlength="24" placeholder="R$ 0,00" />
+          </div>
+          <div class="field">
+            <label for="public-projection-interest">Juros nominais anuais (%)</label>
+            <input id="public-projection-interest" formControlName="annualNominalRate" inputmode="decimal" maxlength="10" placeholder="Ex.: 7,5" />
+          </div>
+          <div class="field">
+            <label for="public-projection-tr">TR projetada ao mês (%)</label>
+            <input id="public-projection-tr" formControlName="monthlyTr" inputmode="decimal" maxlength="10" placeholder="Opcional" />
+          </div>
+          <div class="field">
+            <label for="public-projection-insurance">Seguro mensal</label>
+            <input id="public-projection-insurance" formControlName="insurance" inputmode="decimal" maxlength="24" placeholder="Opcional" />
+          </div>
+          <div class="field">
+            <label for="public-projection-fees">Taxas mensais</label>
+            <input id="public-projection-fees" formControlName="fees" inputmode="decimal" maxlength="24" placeholder="Opcional" />
+          </div>
+          <div class="field">
+            <label for="public-projection-start">Primeiro mês</label>
+            <input id="public-projection-start" formControlName="startMonth" type="month" min="1900-01" max="2100-12" placeholder="AAAA-MM" />
+          </div>
+          <div class="field">
+            <label for="public-projection-end">Mês previsto de entrega</label>
+            <input id="public-projection-end" formControlName="endMonth" type="month" min="1900-01" max="2100-12" placeholder="AAAA-MM" />
+          </div>
+        </div>
+        <p class="simulator-note">Preencha com zero os encargos de valor zero. Campos opcionais em branco ficam em aberto.</p>
+      </fieldset>
+      <button class="primary-button full-width" type="submit" [disabled]="busy()">
+        {{ busy() ? 'Calculando…' : 'Calcular projeção' }}
+      </button>
+    </form>
+
+    <div class="simulator-card simulator-result">
+      @if (result(); as estimate) {
+        <h2 id="public-projection-result" tabindex="-1">Projeção até a entrega</h2>
+        <dl class="estimate">
+          <div>
+            <dt>Total estimado</dt>
+            <dd>{{ amount(estimate.totalCents) }}</dd>
+          </div>
+          @if (estimate.totalCents === null) {
+            <div>
+              <dt>Subtotal mínimo estimado</dt>
+              <dd>{{ amount(estimate.knownSubtotalCents) }}</dd>
+            </div>
+          }
+        </dl>
+        <p class="simulator-note">O cálculo distribui as liberações até atingir o financiamento. A TR e os juros usam o saldo do início de cada mês.</p>
+        <app-projection-chart [rows]="estimate.rows" />
+        <div class="table-wrap" role="region" aria-label="Encargos por mês" tabindex="0">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Mês</th>
+                <th scope="col">Liberação</th>
+                <th scope="col">Saldo liberado</th>
+                <th scope="col">Juros</th>
+                <th scope="col">TR</th>
+                <th scope="col">Seguro</th>
+                <th scope="col">Taxas</th>
+                <th scope="col">Total mensal</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of estimate.rows; track row.month) {
+                <tr>
+                  <th scope="row">{{ month(row.month) }}</th>
+                  <td>{{ amount(row.releaseCents) }}</td>
+                  <td>{{ amount(row.releasedCents) }}</td>
+                  <td>{{ amount(row.interestCents) }}</td>
+                  <td>{{ amount(row.trCents) }}</td>
+                  <td>{{ amount(row.insuranceCents) }}</td>
+                  <td>{{ amount(row.feesCents) }}</td>
+                  <td>
+                    {{ amount(row.totalCents) }}
+                    @if (row.totalCents === null) {
+                      <small>Mínimo {{ amount(row.knownSubtotalCents) }}</small>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <h2>Seu resultado</h2>
+        <p class="inline-note">Preencha o formulário para visualizar o gráfico e a tabela mensal.</p>
+      }
+    </div>
+  </div>
+</section>

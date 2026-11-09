@@ -2,6 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, DestroyRef, ElementRef, inject, OnInit, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { AccountsApi, apiMessage } from './accounts-api';
+import { BuilderProjection } from './builder-projection';
 import {
   FinanceApi, FinanceSnapshot, FinancingDraft, LedgerMonth, MonthDraft, Payment, PaymentKind,
   PaymentStatus, ProjectionAssumptions, TrOrigin,
@@ -11,7 +12,7 @@ import { ProjectionChart } from './projection-chart';
 import type { ProjectionReport } from './projection-pdf';
 import { OperationKey } from './security-input';
 
-type FinanceView = 'summary' | 'financing' | 'month' | 'projection';
+type FinanceView = 'summary' | 'financing' | 'month' | 'projection' | 'builder-projection';
 
 const MIN_TR_DATE = '1991-02-01';
 const TR_MAX_DAYS = 32;
@@ -26,7 +27,7 @@ class InputProblem extends Error {
 
 @Component({
   selector: 'app-finance',
-  imports: [ReactiveFormsModule, ProjectionChart],
+  imports: [ReactiveFormsModule, ProjectionChart, BuilderProjection],
   templateUrl: './finance.html',
   styleUrl: './finance.css',
 })
@@ -135,6 +136,10 @@ export class Finance implements OnInit {
   openProjection(): void {
     this.projection.set(null);
     this.show('projection');
+  }
+
+  openBuilderProjection(): void {
+    this.show('builder-projection');
   }
 
   useHistoricalTr(rate: string): void {

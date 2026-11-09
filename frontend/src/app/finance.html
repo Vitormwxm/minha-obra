@@ -14,6 +14,10 @@
         <h1 id="finance-title" tabindex="-1">Simular evolução de obra</h1>
         <p>Estime quanto ainda pode pagar à CAIXA, do mês atual até a entrega prevista.</p>
       }
+      @case ('builder-projection') {
+        <h1 id="finance-title" tabindex="-1">Simular parcelas da construtora</h1>
+        <p>Compare parcelas fixas e indexadas até a entrega prevista.</p>
+      }
       @default {
         <h1 id="finance-title" tabindex="-1">Minha obra</h1>
         <p>Acompanhe o financiamento do seu apartamento e os pagamentos mês a mês.</p>
@@ -41,6 +45,7 @@
             <div class="finance-actions">
               <button class="secondary-button" type="button" (click)="openFinancing()" [disabled]="busy()">Editar financiamento</button>
               <button class="secondary-button" type="button" (click)="openProjection()" [disabled]="busy()">Simular evolução de obra</button>
+              <button class="secondary-button" type="button" (click)="openBuilderProjection()" [disabled]="busy()">Simular construtora</button>
             </div>
           </div>
           <dl class="financing-facts">
@@ -254,6 +259,9 @@
         </div>
       }
     </form>
+  } @else if (view() === 'builder-projection' && snapshot()?.financing; as financing) {
+    <app-builder-projection [startMonth]="today.slice(0, 7)" [deliveryMonth]="financing.expectedDeliveryDate.slice(0, 7)"
+      (back)="backToSummary()" (expired)="expired.emit()" (processing)="processing.emit($event)" />
   } @else if (view() === 'projection' && snapshot()?.financing; as financing) {
     <form class="finance-panel" [formGroup]="projectionForm" (ngSubmit)="simulate()" (input)="clearInputProblem(); projection.set(null)">
       <dl class="financing-facts">

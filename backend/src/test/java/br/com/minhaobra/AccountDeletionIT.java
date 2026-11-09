@@ -38,6 +38,7 @@ class AccountDeletionIT {
     private static final String PASSWORD = "05827461";
     private static final String REQUEST = "/api/account/deletion";
     private static final String ADMIN_REQUESTS = "/api/admin/deletions";
+    private static final String NOTIFICATIONS = "/api/notifications/preferences";
     private static final String FINANCE = "/api/finance";
     private static final String FINANCING = FINANCE + "/financing";
     private static final String MONTH = FINANCE + "/months/2025-03";
@@ -136,6 +137,7 @@ class AccountDeletionIT {
         UUID ownerId = jdbc.queryForObject("SELECT id FROM app_account WHERE username=?", UUID.class, username);
         assertStatus(200, admin.mutate("POST", "/api/admin/users/" + ownerId + "/approve", Map.of("version", 0)));
         owner.login(username);
+        assertStatus(200, owner.mutate("PUT", NOTIFICATIONS, notificationInput()));
         assertStatus(200, owner.mutate("PUT", FINANCING, financing(null)));
         assertStatus(200, owner.mutate("PUT", MONTH, month()));
         UUID financingId = jdbc.queryForObject("SELECT id FROM financing WHERE owner_id=?", UUID.class, ownerId);
@@ -167,6 +169,7 @@ class AccountDeletionIT {
 
         assertEquals(0, count("SELECT count(*) FROM app_account WHERE id=?", ownerId));
         assertEquals(0, count("SELECT count(*) FROM account_deletion_request WHERE account_id=?", ownerId));
+        assertEquals(0, count("SELECT count(*) FROM notification_preference WHERE account_id=?", ownerId));
         assertEquals(0, count("SELECT count(*) FROM financing WHERE owner_id=?", ownerId));
         assertEquals(0, count("SELECT count(*) FROM finance_month WHERE financing_id=?", financingId));
         assertEquals(0, count("SELECT count(*) FROM finance_payment WHERE financing_id=?", financingId));
@@ -187,6 +190,65 @@ class AccountDeletionIT {
         assertFalse(body(200, other.get(FINANCE)).get("financing").isNull());
         assertStatus(204, other.send("POST", "/api/auth/logout", null, null, true));
         assertStatus(401, other.get(FINANCE));
+    }
+
+    @Test
+    void notificationPreferencesStayPrivateAndRespectVersionsAndPendingDeletion() throws Exception {
+        Browser owner = loginFixture("notification_owner", "USER");
+        Browser other = loginFixture("notification_other", "USER");
+        Browser admin = loginFixture("notification_admin", "ADMIN");
+        assertStatus(401, new Browser().get(NOTIFICATIONS));
+        assertStatus(403, admin.get(NOTIFICATIONS));
+
+        JsonNode initial = body(200, owner.get(NOTIFICATIONS));
+        assertEquals(0, initial.get("version").asInt());
+        assertFalse(initial.get("enabled").asBoolean());
+        assertEquals(json.readTree("[3,1,0]"), initial.get("offsets"));
+        assertEquals("09:00", initial.get("time").asString());
+        assertTrue(initial.get("afterDue").asBoolean());
+        assertFalse(initial.get("weekly").asBoolean());
+        assertTrue(initial.get("showAmounts").asBoolean());
+        assertTrue(initial.get("caixaDay").isNull());
+        assertTrue(initial.get("builderDay").isNull());
+
+        var input = notificationInput();
+        UUID key = UUID.randomUUID();
+        assertStatus(403, owner.send("PUT", NOTIFICATIONS, input, key, false));
+        JsonNode saved = body(200, owner.send("PUT", NOTIFICATIONS, input, key, true));
+        assertEquals(1, saved.get("version").asInt());
+        assertTrue(saved.get("enabled").asBoolean());
+        assertEquals(json.readTree("[9,0]"), saved.get("offsets"));
+        assertEquals("14:35", saved.get("time").asString());
+        assertEquals(31, saved.get("caixaDay").asInt());
+        assertEquals(saved, body(200, owner.get(NOTIFICATIONS)));
+        assertEquals(saved, body(200, owner.send("PUT", NOTIFICATIONS, input, key, true)));
+        assertError(409, "VERSION_CONFLICT", owner.mutate("PUT", NOTIFICATIONS, input));
+        assertEquals(initial, body(200, other.get(NOTIFICATIONS)));
+
+        input.put("version", 1);
+        input.put("offsets", List.of(0, 0));
+        assertError(400, "DUPLICATE_NOTIFICATION_OFFSET", owner.mutate("PUT", NOTIFICATIONS, input));
+        input.put("offsets", List.of(0, 1.5));
+        assertStatus(400, owner.mutate("PUT", NOTIFICATIONS, input));
+        input.put("offsets", List.of(0, 2));
+        assertError(409, "IDEMPOTENCY_CONFLICT", owner.send("PUT", NOTIFICATIONS, input, key, true));
+        assertStatus(200, owner.mutate("POST", REQUEST, null));
+        assertError(409, "ACCOUNT_DELETION_PENDING", owner.mutate("PUT", NOTIFICATIONS, input));
+        assertEquals(saved, body(200, owner.get(NOTIFICATIONS)));
+    }
+
+    private static Map<String, Object> notificationInput() {
+        var input = new LinkedHashMap<String, Object>();
+        input.put("version", 0);
+        input.put("enabled", true);
+        input.put("offsets", List.of(0, 9));
+        input.put("time", "14:35");
+        input.put("afterDue", false);
+        input.put("weekly", true);
+        input.put("showAmounts", false);
+        input.put("caixaDay", 31);
+        input.put("builderDay", null);
+        return input;
     }
 
     private int count(String sql, Object... parameters) {
