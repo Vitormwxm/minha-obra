@@ -183,7 +183,7 @@
         } @else if (page() === 'deletion' && current.user.role === 'USER') {
           <app-account-deletion [webDownloads]="!isAndroidApp" (expired)="sessionExpired()" (processing)="workspaceBusy.set($event)" />
         } @else if (page() === 'reminders' && current.user.role === 'USER') {
-          <app-reminder-preferences (expired)="sessionExpired()" (processing)="workspaceBusy.set($event)" />
+          <app-reminder-preferences [android]="isAndroidApp" (expired)="sessionExpired()" (processing)="workspaceBusy.set($event)" />
         } @else if (page() === 'finance' && current.stage === 'AUTHENTICATED') {
           <app-finance (expired)="sessionExpired()" (processing)="workspaceBusy.set($event)" />
         } @else {
@@ -193,6 +193,9 @@
               <article class="feature-card admin-feature"><span class="feature-number" aria-hidden="true">01</span><div><span class="eyebrow">ADMINISTRAÇÃO</span><h2>Organize os acessos à plataforma.</h2><p>Aprove solicitações, redefina senhas e gerencie bloqueios em um só lugar.</p></div><button class="primary-button" type="button" (click)="showWorkspacePage('accounts')">Gerenciar pessoas <span aria-hidden="true">→</span></button></article>
             }
             <article class="feature-card finance-feature"><span class="feature-number" aria-hidden="true">↗</span><div><span class="eyebrow">ACOMPANHAMENTO DA OBRA</span><h2>Sua obra, com mais clareza.</h2><p>Cadastre seu financiamento CAIXA e acompanhe os pagamentos da evolução de obra e da construtora.</p></div><button class="primary-button" type="button" (click)="showWorkspacePage('finance')">Acompanhar minha obra <span aria-hidden="true">→</span></button></article>
+            @if (current.user.role === 'ADMIN' && isAndroidApp) {
+              <app-notification-device-controls [admin]="true" />
+            }
             <div class="account-settings">
               <div><h2>Cuide do seu acesso</h2><p>Você entrou como <strong>{{ current.user.username }}</strong>.</p></div>
               <div class="account-settings-actions">

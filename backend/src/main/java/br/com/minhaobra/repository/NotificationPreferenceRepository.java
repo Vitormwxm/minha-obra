@@ -34,6 +34,8 @@ public class NotificationPreferenceRepository {
                 INSERT INTO notification_preference(account_id,version,enabled,offsets,reminder_time,
                     after_due,weekly,show_amounts,caixa_day,builder_day) VALUES (?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT (account_id) DO UPDATE SET version=EXCLUDED.version, enabled=EXCLUDED.enabled,
+                    enabled_since=CASE WHEN EXCLUDED.enabled AND NOT notification_preference.enabled
+                        THEN CURRENT_TIMESTAMP ELSE notification_preference.enabled_since END,
                     offsets=EXCLUDED.offsets, reminder_time=EXCLUDED.reminder_time, after_due=EXCLUDED.after_due,
                     weekly=EXCLUDED.weekly, show_amounts=EXCLUDED.show_amounts,
                     caixa_day=EXCLUDED.caixa_day, builder_day=EXCLUDED.builder_day

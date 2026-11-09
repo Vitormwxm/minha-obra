@@ -1,0 +1,13 @@
+<div class="notification-device">
+  @if (device.available) {
+    <p>{{ admin() ? 'Receba um aviso quando alguém solicitar acesso ao Minha Obra.' : 'Ative os avisos neste celular para receber seus lembretes.' }}</p>
+    <button type="button" class="secondary-button" (click)="device.toggle()" [disabled]="device.busy()">
+      {{ device.enabled() ? 'Desativar avisos neste celular' : 'Ativar avisos neste celular' }}
+    </button>
+    @if (device.message()) {
+      <p role="status">{{ device.message() }}</p>
+    }
+  } @else {
+    <p>Use a versão atual do aplicativo e do Android System WebView para ativar os avisos.</p>
+  }
+</div>

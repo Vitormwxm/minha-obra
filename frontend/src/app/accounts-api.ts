@@ -42,9 +42,10 @@ export class AccountsApi {
     return session;
   }
 
-  async logout(): Promise<void> {
+  async logout(installationId?: string): Promise<void> {
+    const headers = installationId ? new HttpHeaders({ 'X-Notification-Installation': installationId }) : undefined;
     try {
-      await this.post<void>('/auth/logout', {});
+      await this.mutate<void>('POST', '/auth/logout', {}, undefined, { headers });
     } catch (error) {
       if (!(error instanceof HttpErrorResponse && error.status === 401)) throw error;
     }
@@ -95,14 +96,15 @@ export class AccountsApi {
     }
   }
 
-  async mutate<T>(method: 'POST' | 'PUT' | 'DELETE', path: string, payload: unknown, key?: string): Promise<T> {
+  async mutate<T>(method: 'POST' | 'PUT' | 'DELETE', path: string, payload: unknown, key?: string,
+    options?: { headers?: HttpHeaders; timeout?: number }): Promise<T> {
     if (!this.csrfToken) await this.refreshCsrf();
     // Angular reads the plain XSRF cookie. A JSON CsrfToken can be XOR-masked
     // by Spring's SPA handler, so it must not replace the cookie header.
-    let headers = new HttpHeaders();
+    let headers = options?.headers ?? new HttpHeaders();
     if (key) headers = headers.set('Idempotency-Key', key);
     return firstValueFrom(this.http.request<T>(method, '/api' + path, {
-      body: payload, headers, withCredentials: true,
+      body: payload, headers, withCredentials: true, timeout: options?.timeout,
     }));
   }
 

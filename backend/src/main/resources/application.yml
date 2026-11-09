@@ -57,6 +57,10 @@ app:
     secure-cookies: false
   events:
     enabled: ${APP_EVENTS_ENABLED:false}
+  push:
+    enabled: ${APP_PUSH_ENABLED:false}
+    project-id: ${APP_PUSH_PROJECT_ID:}
+    credentials-file: ${APP_PUSH_CREDENTIALS_FILE:}
 
 server:
   port: 8080

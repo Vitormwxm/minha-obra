@@ -3,6 +3,7 @@ package br.com.minhaobra.controller;
 import br.com.minhaobra.dto.Accounts;
 import br.com.minhaobra.service.AccountService;
 import br.com.minhaobra.service.MfaService;
+import br.com.minhaobra.service.NotificationDeviceService;
 import br.com.minhaobra.service.SessionContextService;
 import br.com.minhaobra.security.AttemptLimiter;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,13 +22,15 @@ public class AuthController {
     private final MfaService mfa;
     private final SessionContextService sessions;
     private final AttemptLimiter limits;
+    private final NotificationDeviceService devices;
 
     public AuthController(AccountService accounts, MfaService mfa, SessionContextService sessions,
-            AttemptLimiter limits) {
+            AttemptLimiter limits, NotificationDeviceService devices) {
         this.accounts = accounts;
         this.mfa = mfa;
         this.sessions = sessions;
         this.limits = limits;
+        this.devices = devices;
     }
 
     @GetMapping("/csrf")
@@ -66,7 +69,11 @@ public class AuthController {
 
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void logout(HttpServletRequest request, HttpServletResponse response) {
+    public void logout(HttpServletRequest request, HttpServletResponse response, Authentication authentication,
+            @RequestHeader(value = "X-Notification-Installation", required = false) UUID installation) {
+        if (installation != null) {
+            devices.revoke(sessions.principal(authentication), installation);
+        }
         sessions.logout(request, response);
     }
 

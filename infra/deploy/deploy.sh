@@ -51,7 +51,7 @@ python3 "$release_dir/write_release_env.py" \
   "$release_dir/release.json" "$release_dir/release.env" \
   --sha "$release_sha" --repository "$repository"
 python3 "$release_dir/initialize_auth_key.py" "$base/.env"
-for name in POSTGRES_PASSWORD POSTGRES_ADMIN_PASSWORD APP_DOMAIN KAFKA_CLUSTER_ID APP_TOTP_ENCRYPTION_KEY APP_EVENTS_ENABLED BACKEND_IMAGE FRONTEND_IMAGE; do
+for name in POSTGRES_PASSWORD POSTGRES_ADMIN_PASSWORD APP_DOMAIN KAFKA_CLUSTER_ID APP_TOTP_ENCRYPTION_KEY APP_EVENTS_ENABLED APP_PUSH_ENABLED APP_PUSH_PROJECT_ID APP_PUSH_CREDENTIALS_HOST_FILE BACKEND_IMAGE FRONTEND_IMAGE; do
   unset "$name"
 done
 compose_args=(-p minha-obra --env-file "$base/.env" --env-file "$release_dir/release.env" -f "$release_dir/compose.prod.yml")

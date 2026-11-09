@@ -1,8 +1,12 @@
 <section class="deletion" aria-labelledby="reminder-title" [attr.aria-busy]="loading() || busy()">
   <span class="eyebrow">MINHA CONTA</span>
   <h1 id="reminder-title" tabindex="-1">Lembretes de pagamento</h1>
-  <p class="deletion-lead">Defina como quer receber os avisos da CAIXA e da construtora no Android.</p>
-  <p class="inline-note">Você já pode salvar as preferências. A entrega no celular aguarda a ativação do Firebase.</p>
+  <p class="deletion-lead">Defina quando quer receber os avisos de vencimento da CAIXA e da construtora no Android.</p>
+  @if (android()) {
+    <app-notification-device-controls />
+  } @else {
+    <p class="inline-note">Abra o aplicativo Android para ativar os avisos no seu celular.</p>
+  }
   @if (error()) {
     <div class="alert error" role="alert"><p>{{ error() }}</p></div>
   }
@@ -14,7 +18,7 @@
     <form class="deletion-panel" [formGroup]="form" (ngSubmit)="save()">
       <fieldset class="reminder-fields" [disabled]="busy() || loading()">
         <legend>Preferências</legend>
-        <label class="check-label"><input type="checkbox" formControlName="enabled" /> Quero receber lembretes quando o envio estiver disponível</label>
+        <label class="check-label"><input type="checkbox" formControlName="enabled" /> Quero receber lembretes de pagamento</label>
         <div class="field">
           <label for="reminder-time">Horário local do celular</label>
           <input id="reminder-time" type="time" step="60" formControlName="time" />
@@ -35,7 +39,7 @@
         <p class="deletion-lead">O vencimento informado no lançamento tem prioridade sobre o dia recorrente.</p>
         <label class="check-label"><input type="checkbox" formControlName="afterDue" /> Avisar um dia após o vencimento em aberto</label>
         <label class="check-label"><input type="checkbox" formControlName="weekly" /> Repetir semanalmente enquanto estiver em aberto</label>
-        <label class="check-label"><input type="checkbox" formControlName="showAmounts" /> Mostrar valores no aviso</label>
+
       </fieldset>
       <div class="deletion-actions">
         <button type="submit" class="primary-button" [disabled]="busy() || loading()">Salvar preferências</button>

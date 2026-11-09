@@ -1,8 +1,9 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, inject, OnInit, output, signal } from '@angular/core';
+import { Component, DestroyRef, inject, input, OnInit, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { AccountsApi, apiMessage } from './accounts-api';
+import { NotificationDeviceControls } from './notification-device-controls';
 import { OperationKey } from './security-input';
 
 interface Preferences {
@@ -19,7 +20,7 @@ interface Preferences {
 
 @Component({
   selector: 'app-reminder-preferences',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, NotificationDeviceControls],
   templateUrl: './reminder-preferences.html',
   styleUrl: './deletion.css',
 })
@@ -30,6 +31,7 @@ export class ReminderPreferences implements OnInit {
   private readonly destroy = inject(DestroyRef);
   private readonly key = new OperationKey();
 
+  readonly android = input(false);
   readonly expired = output<void>();
   readonly processing = output<boolean>();
   readonly current = signal<Preferences | null>(null);

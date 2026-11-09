@@ -102,10 +102,20 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       APP_TOTP_ENCRYPTION_KEY: ${APP_TOTP_ENCRYPTION_KEY:?Inicialize a chave privada de autenticação}
       APP_EVENTS_ENABLED: 'true'
+      APP_PUSH_ENABLED: ${APP_PUSH_ENABLED:-false}
+      APP_PUSH_PROJECT_ID: ${APP_PUSH_PROJECT_ID:-}
+      APP_PUSH_CREDENTIALS_FILE: /run/secrets/firebase-push.json
       SERVER_TOMCAT_THREADS_MAX: '16'
       SERVER_TOMCAT_THREADS_MIN_SPARE: '2'
       SERVER_FORWARD_HEADERS_STRATEGY: framework
       JAVA_TOOL_OPTIONS: -Xms64m -Xmx256m -XX:+ExitOnOutOfMemoryError
+    volumes:
+      - type: bind
+        source: ${APP_PUSH_CREDENTIALS_HOST_FILE:-/dev/null}
+        target: /run/secrets/firebase-push.json
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
       postgres:
         condition: service_healthy
