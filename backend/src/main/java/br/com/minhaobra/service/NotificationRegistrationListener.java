@@ -35,7 +35,7 @@ public class NotificationRegistrationListener {
     }
 
     @Bean
-    ContainerPostProcessor<String, String, AbstractMessageListenerContainer<String, String>> registrationNoticeRetry() {
+    static ContainerPostProcessor<String, String, AbstractMessageListenerContainer<String, String>> registrationNoticeRetry() {
         return container -> {
             var errors = new DefaultErrorHandler((record, failure) ->
                     LOG.warn("Falha ao processar aviso de cadastro: {}", failure.getClass().getSimpleName()),

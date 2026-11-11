@@ -224,6 +224,9 @@ jobs:
           APP_TOTP_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
           BACKEND_IMAGE: minhaobra-backend:ci
           FRONTEND_IMAGE: minhaobra-frontend:ci
+          APP_PUSH_ENABLED: 'true'
+          APP_PUSH_PROJECT_ID: minha-obra-ci
+          APP_PUSH_CREDENTIALS_HOST_FILE: ${{ runner.temp }}/fcm-ci/service.json
         run: |
           docker build -t minhaobra-backend:ci backend
           docker build -t minhaobra-frontend:ci -f infra/docker/frontend.Dockerfile .
@@ -232,6 +235,24 @@ jobs:
             -keyout /etc/letsencrypt/live/obra-ci.example.com/privkey.pem \
             -out /etc/letsencrypt/live/obra-ci.example.com/fullchain.pem \
             -subj '/CN=obra-ci.example.com' -addext 'subjectAltName=DNS:obra-ci.example.com' 2>/dev/null
+          # Exercise Kafka and FCM startup together with a synthetic key and no registered devices.
+          python3 - <<'PY'
+          import json, os, pathlib, subprocess
+
+          path = pathlib.Path(os.environ['APP_PUSH_CREDENTIALS_HOST_FILE'])
+          project = os.environ['APP_PUSH_PROJECT_ID']
+          path.parent.mkdir(mode=0o700)
+          key = subprocess.check_output(['openssl', 'genpkey', '-algorithm', 'RSA',
+                                         '-pkeyopt', 'rsa_keygen_bits:2048'],
+                                        stderr=subprocess.DEVNULL, text=True)
+          path.write_text(json.dumps({
+              'type': 'service_account', 'project_id': project,
+              'client_id': '1234567890', 'client_email': f'push@{project}.iam.gserviceaccount.com',
+              'private_key_id': 'ci-fixture', 'private_key': key,
+              'token_uri': 'https://oauth2.googleapis.com/token', 'universe_domain': 'googleapis.com',
+          }), encoding='utf-8')
+          path.chmod(0o444)
+          PY
           compose_cmd=("$RUNNER_TEMP/compose-2.24.5/docker-compose-linux-x86_64")
           "${compose_cmd[@]}" -p minha-obra-ci --env-file /dev/null -f infra/compose.prod.yml up -d --no-build --wait --wait-timeout 300
           test "$("${compose_cmd[@]}" -p minha-obra-ci --env-file /dev/null -f infra/compose.prod.yml exec -T postgres psql -U postgres -d minhaobra -Atc "SELECT rolsuper FROM pg_roles WHERE rolname='minhaobra'")" = f
