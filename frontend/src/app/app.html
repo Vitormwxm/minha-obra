@@ -1,5 +1,6 @@
 <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
-<div class="app-shell">
+<div class="app-shell" [class.android-app]="isAndroidApp"
+     [class.with-workspace-nav]="session()?.stage === 'AUTHENTICATED' && !changingPassword() && !recoveryCodes().length">
   <header class="app-header">
     <a class="brand" href="#conteudo" aria-label="Minha Obra, início">
       <span class="brand-symbol" aria-hidden="true">
@@ -9,8 +10,6 @@
     </a>
     @if (session(); as current) {
       <div class="header-account"><span class="header-name">{{ current.user.displayName }}</span><button class="text-button logout" type="button" (click)="logout()" [disabled]="busy() || workspaceBusy()">Sair</button></div>
-    } @else {
-      <span class="environment"><span aria-hidden="true"></span>Seu espaço, sua obra</span>
     }
   </header>
 
@@ -29,7 +28,6 @@
     } @else if (!session() && accessPage() === 'register') {
       <section class="centered-flow" aria-labelledby="registration-title">
         <div class="flow-heading">
-          <span class="eyebrow">MINHA OBRA</span>
           <h1 id="registration-title" tabindex="-1">Solicitar conta</h1>
           <p>Escolha seu usuário e sua senha. Você poderá entrar assim que o administrador aprovar a solicitação.</p>
         </div>
@@ -50,12 +48,12 @@
             </div>
             <div class="field">
               <label for="registration-password">Senha</label>
-              <input id="registration-password" formControlName="password" type="password" autocomplete="new-password" inputmode="numeric" aria-describedby="registration-password-help" [attr.aria-invalid]="registrationForm.controls.password.touched && registrationForm.controls.password.invalid" />
-              <small id="registration-password-help">Use exatamente 8 dígitos de 0 a 9.</small>
+              <input id="registration-password" formControlName="password" type="password" autocomplete="new-password" maxlength="72" aria-describedby="registration-password-help" [attr.aria-invalid]="registrationForm.controls.password.touched && registrationForm.controls.password.invalid" />
+              <small id="registration-password-help">Use pelo menos 8 caracteres. Letras e números são aceitos.</small>
             </div>
             <div class="field">
               <label for="registration-confirmation">Confirme a senha</label>
-              <input id="registration-confirmation" formControlName="confirmPassword" type="password" autocomplete="new-password" inputmode="numeric" [attr.aria-invalid]="registrationForm.controls.confirmPassword.touched && registrationForm.controls.confirmPassword.invalid" />
+              <input id="registration-confirmation" formControlName="confirmPassword" type="password" autocomplete="new-password" maxlength="72" [attr.aria-invalid]="registrationForm.controls.confirmPassword.touched && registrationForm.controls.confirmPassword.invalid" />
             </div>
             <button class="primary-button full-width" type="submit" [disabled]="busy()">{{ busy() ? 'Enviando…' : 'Enviar solicitação' }}</button>
             <button class="text-button full-width secondary-action" type="button" (click)="showAccessPage('login')" [disabled]="busy()">Voltar para entrar</button>
@@ -65,7 +63,6 @@
     } @else if (!session() && accessPage() === 'requested') {
       <section class="centered-flow" aria-labelledby="requested-title">
         <div class="flow-heading">
-          <span class="eyebrow">MINHA OBRA</span>
           <h1 id="requested-title" tabindex="-1">Aguardando aprovação</h1>
           <p>Sua solicitação foi recebida. Após a aprovação do administrador, entre com o usuário e a senha que você escolheu.</p>
         </div>
@@ -76,15 +73,13 @@
     } @else if (!session()) {
       <section class="login-layout" aria-labelledby="login-title">
         <div class="intro-copy">
-          <span class="eyebrow">CADA ETAPA CONTA</span>
-          <h1 id="login-title" tabindex="-1">Um lugar para acompanhar o que você está construindo.</h1>
-          <p class="lead">Mais clareza e organização para a jornada até a entrega do seu apartamento.</p>
+          <h2>Acompanhe sua obra até a entrega.</h2>
+          <p class="lead">Organize os pagamentos à CAIXA e à construtora e projete os próximos meses.</p>
           <app-home-art />
         </div>
         <div class="access-card">
-          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M7 10V7a5 5 0 0 1 10 0v3M6 10h12v11H6zM12 14v3" /></svg></span>
-          <h2>Que bom ter você aqui.</h2>
-          <p class="card-description">Entre com os dados do seu acesso.</p>
+          <h1 id="login-title" tabindex="-1">Entre na sua conta</h1>
+          <p class="card-description">Use seu nome de usuário e sua senha.</p>
           <form [formGroup]="loginForm" (ngSubmit)="login()" [attr.aria-busy]="busy()">
             <div class="field">
               <label for="login-username">Usuário</label>
@@ -99,8 +94,7 @@
             </div>
             <button class="primary-button full-width" type="submit" [disabled]="busy()">
               @if (busy()) { <span class="button-spinner" aria-hidden="true"></span> }
-              {{ busy() ? 'Entrando…' : 'Entrar na minha conta' }}
-              @if (!busy()) { <span aria-hidden="true">→</span> }
+              {{ busy() ? 'Entrando…' : 'Entrar' }}
             </button>
           </form>
           <button class="secondary-button full-width secondary-action" type="button" (click)="showAccessPage('register')" [disabled]="busy()">Solicitar conta</button>
@@ -113,12 +107,12 @@
       </section>
     } @else if (session()?.stage === 'CHANGE_PASSWORD' || changingPassword()) {
       <section class="centered-flow" aria-labelledby="password-title">
-        <div class="flow-heading"><span class="eyebrow">SEU ACESSO</span><h1 id="password-title" tabindex="-1">Uma nova senha para sua conta.</h1><p>{{ changingPassword() ? 'Confirme a senha atual e defina uma nova.' : 'Troque a senha provisória para acessar sua conta.' }}</p></div>
+        <div class="flow-heading"><h1 id="password-title" tabindex="-1">Uma nova senha para sua conta.</h1><p>{{ changingPassword() ? 'Confirme a senha atual e defina uma nova.' : 'Troque a senha provisória para acessar sua conta.' }}</p></div>
         <div class="flow-card">
           <form [formGroup]="passwordForm" (ngSubmit)="changePassword()" [attr.aria-busy]="busy()">
             <div class="field"><label for="current-password">{{ changingPassword() ? 'Senha atual' : 'Senha provisória' }}</label><input id="current-password" type="password" formControlName="currentPassword" autocomplete="current-password" maxlength="72" /></div>
-            <div class="field"><label for="new-password">Nova senha</label><input id="new-password" type="password" formControlName="newPassword" autocomplete="new-password" inputmode="numeric" aria-describedby="password-help" [attr.aria-invalid]="passwordForm.controls.newPassword.touched && passwordForm.controls.newPassword.invalid" /><small id="password-help">Use exatamente 8 dígitos de 0 a 9.</small></div>
-            <div class="field"><label for="confirm-password">Confirme a nova senha</label><input id="confirm-password" type="password" formControlName="confirmPassword" autocomplete="new-password" inputmode="numeric" [attr.aria-invalid]="passwordForm.controls.confirmPassword.touched && passwordForm.controls.confirmPassword.invalid" /></div>
+            <div class="field"><label for="new-password">Nova senha</label><input id="new-password" type="password" formControlName="newPassword" autocomplete="new-password" maxlength="72" aria-describedby="password-help" [attr.aria-invalid]="passwordForm.controls.newPassword.touched && passwordForm.controls.newPassword.invalid" /><small id="password-help">Use pelo menos 8 caracteres. Letras e números são aceitos.</small></div>
+            <div class="field"><label for="confirm-password">Confirme a nova senha</label><input id="confirm-password" type="password" formControlName="confirmPassword" autocomplete="new-password" maxlength="72" [attr.aria-invalid]="passwordForm.controls.confirmPassword.touched && passwordForm.controls.confirmPassword.invalid" /></div>
             <button class="primary-button full-width" type="submit" [disabled]="busy()">{{ busy() ? 'Atualizando…' : 'Salvar nova senha' }}</button>
             @if (changingPassword()) { <button class="text-button full-width secondary-action" type="button" (click)="cancelPasswordChange()" [disabled]="busy()">Voltar à minha conta</button> }
           </form>
@@ -126,7 +120,7 @@
       </section>
     } @else if (recoveryCodes().length) {
       <section class="centered-flow recovery-flow" aria-labelledby="recovery-title">
-        <div class="flow-heading"><span class="eyebrow">ÚLTIMO PASSO</span><h1 id="recovery-title" tabindex="-1">Guarde seus códigos de recuperação.</h1><p>Eles permitem entrar se você perder o acesso ao autenticador. Cada código funciona uma única vez, junto com sua senha.</p></div>
+        <div class="flow-heading"><h1 id="recovery-title" tabindex="-1">Guarde seus códigos de recuperação.</h1><p>Eles permitem entrar se você perder o acesso ao autenticador. Cada código funciona uma única vez, junto com sua senha.</p></div>
         <div class="flow-card">
           <p class="inline-note">Estes códigos só serão exibidos agora. Guarde-os em um local seguro.</p>
           <ul class="recovery-codes" aria-label="Códigos de recuperação">@for (code of recoveryCodes(); track code) { <li><code>{{ code }}</code></li> }</ul>
@@ -169,10 +163,21 @@
       </section>
     } @else if (session(); as current) {
       <div class="workspace">
-        <nav class="workspace-nav" aria-label="Minha conta">
-          <button type="button" [class.selected]="page() === 'overview'" [attr.aria-current]="page() === 'overview' ? 'page' : null" (click)="showWorkspacePage('overview')" [disabled]="workspaceBusy()">Visão geral</button>
-          <button type="button" [class.selected]="page() === 'finance'" [attr.aria-current]="page() === 'finance' ? 'page' : null" (click)="showWorkspacePage('finance')" [disabled]="workspaceBusy()">Minha obra</button>
-          @if (current.user.role === 'ADMIN') { <button type="button" [class.selected]="page() === 'accounts' || page() === 'deletions'" [attr.aria-current]="page() === 'accounts' || page() === 'deletions' ? 'page' : null" (click)="showWorkspacePage('accounts')" [disabled]="workspaceBusy()">Pessoas e acessos</button> }
+        <nav class="workspace-nav" aria-label="Navegação principal">
+          <button type="button" [class.selected]="page() === 'overview'" [attr.aria-current]="page() === 'overview' ? 'page' : null" (click)="showWorkspacePage('overview')" [disabled]="workspaceBusy()">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v11H3zm6 11v-7h6v7"/></svg>Início
+          </button>
+          <button type="button" [class.selected]="page() === 'finance'" [attr.aria-current]="page() === 'finance' ? 'page' : null" (click)="showWorkspacePage('finance')" [disabled]="workspaceBusy()">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 21h16V4H4zm4-12h2m4 0h2m-8 4h2m4 0h2m-6 8v-4h4v4"/></svg>Minha obra
+          </button>
+          @if (current.user.role === 'ADMIN') {
+            <button type="button" [class.selected]="page() === 'accounts' || page() === 'deletions'" [attr.aria-current]="page() === 'accounts' || page() === 'deletions' ? 'page' : null" (click)="showWorkspacePage('accounts')" [disabled]="workspaceBusy()">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M2 20v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2m0-15a3 3 0 0 1 0 6m2 2a5 5 0 0 1 4 5v2"/></svg>Pessoas
+            </button>
+          }
+          <button type="button" [class.selected]="page() === 'profile' || page() === 'deletion' || page() === 'reminders'" [attr.aria-current]="page() === 'profile' || page() === 'deletion' || page() === 'reminders' ? 'page' : null" (click)="showWorkspacePage('profile')" [disabled]="workspaceBusy()">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"/></svg>Conta
+          </button>
         </nav>
         @if (page() === 'accounts' && current.user.role === 'ADMIN') {
           <div class="workspace-actions"><button class="secondary-button" type="button" (click)="showWorkspacePage('deletions')" [disabled]="workspaceBusy()">Pedidos de exclusão</button></div>
@@ -181,23 +186,16 @@
           <div class="workspace-actions"><button class="text-button" type="button" (click)="showWorkspacePage('accounts')" [disabled]="workspaceBusy()">Voltar para Pessoas e acessos</button></div>
           <app-admin-deletions (expired)="sessionExpired()" (processing)="workspaceBusy.set($event)" />
         } @else if (page() === 'deletion' && current.user.role === 'USER') {
+          <div class="workspace-actions"><button class="text-button" type="button" (click)="showWorkspacePage('profile')" [disabled]="workspaceBusy()">Voltar à conta</button></div>
           <app-account-deletion [webDownloads]="!isAndroidApp" (expired)="sessionExpired()" (processing)="workspaceBusy.set($event)" />
         } @else if (page() === 'reminders' && current.user.role === 'USER') {
+          <div class="workspace-actions"><button class="text-button" type="button" (click)="showWorkspacePage('profile')" [disabled]="workspaceBusy()">Voltar à conta</button></div>
           <app-reminder-preferences [android]="isAndroidApp" (expired)="sessionExpired()" (processing)="workspaceBusy.set($event)" />
         } @else if (page() === 'finance' && current.stage === 'AUTHENTICATED') {
           <app-finance (expired)="sessionExpired()" (processing)="workspaceBusy.set($event)" />
-        } @else {
-          <section class="overview" aria-labelledby="overview-title">
-            <div class="overview-heading"><span class="eyebrow">{{ current.user.role === 'ADMIN' ? 'PAINEL ADMINISTRATIVO' : 'MINHA CONTA' }}</span><h1 id="overview-title" tabindex="-1">Olá, {{ current.user.displayName }}.</h1><p>Seu acesso está pronto. Que bom construir o próximo passo com você.</p></div>
-            @if (current.user.role === 'ADMIN') {
-              <article class="feature-card admin-feature"><span class="feature-number" aria-hidden="true">01</span><div><span class="eyebrow">ADMINISTRAÇÃO</span><h2>Organize os acessos à plataforma.</h2><p>Aprove solicitações, redefina senhas e gerencie bloqueios em um só lugar.</p></div><button class="primary-button" type="button" (click)="showWorkspacePage('accounts')">Gerenciar pessoas <span aria-hidden="true">→</span></button></article>
-            }
-            <article class="feature-card finance-feature"><span class="feature-number" aria-hidden="true">↗</span><div><span class="eyebrow">ACOMPANHAMENTO DA OBRA</span><h2>Sua obra, com mais clareza.</h2><p>Cadastre seu financiamento CAIXA e acompanhe os pagamentos da evolução de obra e da construtora.</p></div><button class="primary-button" type="button" (click)="showWorkspacePage('finance')">Acompanhar minha obra <span aria-hidden="true">→</span></button></article>
-            @if (current.user.role === 'ADMIN' && isAndroidApp) {
-              <app-notification-device-controls [admin]="true" />
-            }
-            <div class="account-settings">
-              <div><h2>Cuide do seu acesso</h2><p>Você entrou como <strong>{{ current.user.username }}</strong>.</p></div>
+        } @else if (page() === 'profile') {
+          <section class="account-settings" aria-labelledby="account-title">
+              <div class="flow-heading"><h1 id="account-title" tabindex="-1">Minha conta</h1><p>{{ current.user.displayName }} · {{ current.user.username }}</p></div>
               <div class="account-settings-actions">
                 <button class="secondary-button" type="button" (click)="openPasswordChange()" [disabled]="workspaceBusy()">Alterar minha senha</button>
                 @if (current.user.role === 'USER') {
@@ -205,7 +203,21 @@
                   <button class="secondary-button" type="button" (click)="showWorkspacePage('deletion')" [disabled]="workspaceBusy()">Exclusão da conta</button>
                 }
               </div>
-            </div>
+          </section>
+        } @else {
+          <section class="overview" aria-labelledby="overview-title">
+            <div class="overview-heading"><h1 id="overview-title" tabindex="-1">Olá, {{ current.user.displayName }}.</h1></div>
+            <article class="feature-card finance-feature">
+              <div><h2>Acompanhe sua obra</h2><p>Veja seus pagamentos, o saldo liberado e a projeção até a entrega.</p></div>
+              <button class="primary-button" type="button" (click)="showWorkspacePage('finance')">Abrir minha obra</button>
+            </article>
+            @if (current.user.role === 'ADMIN') {
+              <article class="feature-card admin-feature">
+                <div><h2>Pessoas e acessos</h2><p>Analise novos pedidos e gerencie as contas.</p></div>
+                <button class="secondary-button" type="button" (click)="showWorkspacePage('accounts')">Gerenciar pessoas</button>
+              </article>
+              @if (isAndroidApp) { <app-notification-device-controls [admin]="true" /> }
+            }
           </section>
         }
       </div>
@@ -215,8 +227,6 @@
     <span>Minha Obra</span>
     @if (apkAvailable()) {
       <a class="text-button" href="/downloads/minha-obra.apk" download>Baixar app Android</a>
-    } @else {
-      <span>Construindo o próximo passo.</span>
     }
   </footer>
 </div>

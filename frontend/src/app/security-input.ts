@@ -1,9 +1,13 @@
-/** New passwords are strings to preserve leading zeroes. */
+import type { ValidatorFn } from '@angular/forms';
+
 export function passwordProblem(value: string): string | null {
-  return value.length === 8 && !/[^0-9]/.test(value)
-    ? null
-    : 'Use uma senha com exatamente 8 dígitos de 0 a 9.';
+  if ([...value].length < 8 || /^[\p{Z}\s]*$/u.test(value)) return 'Use pelo menos 8 caracteres na senha.';
+  if (/\p{Cc}/u.test(value)) return 'Remova as quebras de linha e os caracteres de controle da senha.';
+  return new TextEncoder().encode(value).length > 72 ? 'Use uma senha com até 72 bytes.' : null;
 }
+
+export const passwordValidator: ValidatorFn = control =>
+  passwordProblem(control.value) === null ? null : { passwordPolicy: true };
 
 export function normalizedUsername(value: string): string {
   return value.trim().toLowerCase();
@@ -22,13 +26,8 @@ export function newOperationKey(): string {
 }
 
 export function newTemporaryPassword(): string {
-  const combinations = 100_000_000;
-  const limit = Math.floor(2 ** 32 / combinations) * combinations;
-  const random = new Uint32Array(1);
-  do {
-    crypto.getRandomValues(random);
-  } while (random[0]! >= limit);
-  return (random[0]! % combinations).toString().padStart(8, '0');
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => alphabet[byte & 63]).join('');
 }
 
 /**

@@ -269,7 +269,7 @@ def main():
     origin = "https://" + args.domain
     assert_public_projection(origin, context)
     provisional, permanent, person_password, replacement, new_password = (
-        f"{value:08d}" for value in secrets.SystemRandom().sample(range(100_000_000), 5)
+        f"Obra{value:08d}" for value in secrets.SystemRandom().sample(range(100_000_000), 5)
     )
     bootstrap(compose, provisional)
     admin = Client(origin, context)

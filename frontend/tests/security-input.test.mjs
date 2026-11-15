@@ -5,10 +5,12 @@ import {
   passwordProblem, validUsername,
 } from '../src/app/security-input.ts';
 
-test('new passwords require eight ASCII digits and preserve leading zeroes', () => {
+test('new passwords allow eight or more characters and respect the BCrypt limit', () => {
   assert.equal(passwordProblem('01234567'), null);
-  assert.equal(passwordProblem('00000000'), null);
-  for (const value of ['', '1234567', '123456789', '1234567x', ' 01234567', '01234567\n', '１２３４５６７８']) {
+  assert.equal(passwordProblem('MinhaObra2026'), null);
+  assert.equal(passwordProblem('123456789'), null);
+  assert.equal(passwordProblem('é'.repeat(36)), null);
+  for (const value of ['', '1234567', '        ', '01234567\n', 'é'.repeat(37), 'a'.repeat(73)]) {
     assert.notEqual(passwordProblem(value), null);
   }
 });
@@ -25,8 +27,7 @@ test('usernames normalize without permitting paths or ambiguous punctuation pref
 
 test('generated temporary passwords satisfy the server policy', () => {
   const password = newTemporaryPassword();
-  assert.equal(password.length, 8);
-  assert.match(password, /^[0-9]{8}$/);
+  assert.match(password, /^[A-Za-z0-9_-]{16}$/);
   assert.equal(passwordProblem(password), null);
 });
 
