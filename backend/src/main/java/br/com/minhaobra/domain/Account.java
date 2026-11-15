@@ -7,7 +7,7 @@ import java.util.UUID;
 public record Account(UUID id, String username, String displayName, String email, String passwordHash,
         String role, String status, boolean mustChangePassword, long authVersion, long version,
         String totpSecret, String totpPendingSecret, Instant totpPendingUntil,
-        long totpLastCounter, Instant createdAt) {
+        long totpLastCounter, Instant createdAt, Instant lastAccessAt) {
     public boolean isAdmin() {
         return "ADMIN".equals(role);
     }
@@ -18,6 +18,10 @@ public record Account(UUID id, String username, String displayName, String email
 
     public boolean isPendingApproval() {
         return "PENDING_APPROVAL".equals(status);
+    }
+
+    public boolean isRejected() {
+        return "REJECTED".equals(status);
     }
 
     @Override

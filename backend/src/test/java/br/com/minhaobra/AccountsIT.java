@@ -196,6 +196,38 @@ class AccountsIT {
         }
     }
 
+    @Test void rejectionIsIdempotentAndLastAccessStartsAfterSuccessfulLogin() throws Exception {
+        Browser applicant = new Browser();
+        var body = Map.of("username", "reviewed", "displayName", "Pessoa Solicitante", "email", EMAIL, "password", NORMAL);
+        assertEquals(201, applicant.post("/api/auth/register", body, true, UUID.randomUUID()).statusCode());
+        var account = accounts.byUsername("reviewed").orElseThrow();
+        String path = "/api/admin/users/" + account.id();
+        var version = Map.of("version", account.version());
+        assertEquals(401, applicant.post(path + "/reject", version, true, UUID.randomUUID()).statusCode());
+
+        Browser admin = admin();
+        UUID rejectionKey = UUID.randomUUID();
+        var rejected = admin.post(path + "/reject", version, true, rejectionKey);
+        assertEquals(200, rejected.statusCode(), rejected.body());
+        assertEquals("REJECTED", JsonPath.read(rejected.body(), "$.status"));
+        assertEquals(rejected.body(), admin.post(path + "/reject", version, true, rejectionKey).body());
+        assertEquals(409, admin.post(path + "/approve", version, true, UUID.randomUUID()).statusCode());
+        var rejectedLogin = applicant.login("reviewed", NORMAL);
+        assertEquals(403, rejectedLogin.statusCode());
+        assertEquals("ACCOUNT_REJECTED", JsonPath.read(rejectedLogin.body(), "$.code"));
+        assertNull(accounts.byId(account.id()).orElseThrow().lastAccessAt());
+
+        assertEquals(200, admin.post(path + "/approve", Map.of("version", account.version() + 1),
+                true, UUID.randomUUID()).statusCode());
+        assertStage(applicant.login("reviewed", NORMAL), "AUTHENTICATED");
+        var accessed = accounts.byId(account.id()).orElseThrow();
+        assertNotNull(accessed.lastAccessAt());
+        assertEquals(account.version() + 2, accessed.version());
+        var listed = admin.get("/api/admin/users?search=reviewed");
+        assertEquals(200, listed.statusCode());
+        assertNotNull(JsonPath.read(listed.body(), "$.items[0].lastAccessAt"));
+    }
+
     @Test void onlyAdministratorApprovalUnlocksTheApplicantsChosenPassword() throws Exception {
         Browser applicant = new Browser();
         var body = Map.of("username", "requested", "displayName", "Pessoa Solicitante", "email", EMAIL, "password", NORMAL);

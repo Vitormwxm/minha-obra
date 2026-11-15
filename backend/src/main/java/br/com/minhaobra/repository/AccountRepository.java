@@ -23,13 +23,14 @@ public class AccountRepository {
 
     private static Account map(ResultSet r, int row) throws SQLException {
         var pending = r.getTimestamp("totp_pending_until");
+        var lastAccess = r.getTimestamp("last_access_at");
         return new Account(r.getObject("id", UUID.class), r.getString("username"), r.getString("display_name"),
                 r.getString("email"), r.getString("password_hash"), r.getString("role"), r.getString("status"),
                 r.getBoolean("must_change_password"),
                 r.getLong("auth_version"), r.getLong("version"), r.getString("totp_secret"),
                 r.getString("totp_pending_secret"),
                 pending == null ? null : pending.toInstant(), r.getLong("totp_last_counter"),
-                r.getTimestamp("created_at").toInstant());
+                r.getTimestamp("created_at").toInstant(), lastAccess == null ? null : lastAccess.toInstant());
     }
 
     public Optional<Account> byId(UUID id) {
@@ -97,6 +98,14 @@ public class AccountRepository {
                 "UPDATE app_account SET password_hash=?,must_change_password=TRUE,auth_version=auth_version+1,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=?",
                 hash, id);
         return byId(id).orElseThrow();
+    }
+
+    public Optional<Account> recordAccess(UUID id, long authVersion) {
+        return first(jdbc.query("""
+                UPDATE app_account SET last_access_at=GREATEST(last_access_at, statement_timestamp())
+                WHERE id=? AND auth_version=? AND status='ACTIVE' AND NOT must_change_password
+                RETURNING *
+                """, MAPPER, id, authVersion));
     }
 
     public Account status(UUID id, String status) {

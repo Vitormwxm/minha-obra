@@ -28,6 +28,7 @@
 }
 :root {
   --ink: #253d38;
+  --heading: #242726;
   --muted: #64766e;
   --green: #087f72;
   --blueprint: #183e37;
@@ -53,6 +54,7 @@ body {
 a {
   color: inherit;
 }
+h1, h2, h3, h4 { color: var(--heading); }
 button,
 input,
 textarea,

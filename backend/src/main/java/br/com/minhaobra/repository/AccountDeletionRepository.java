@@ -57,8 +57,9 @@ public class AccountDeletionRepository {
                 """, accountId, accountId);
         jdbc.update("DELETE FROM account_audit WHERE account_id=? OR actor_id=?", accountId, accountId);
         // Administrative operations cache the target's account snapshot under the administrator's ID.
-        jdbc.update("DELETE FROM account_idempotency WHERE operation IN (?,?,?,?)",
-                "approve:" + accountId, "block:" + accountId, "unblock:" + accountId, "reset:" + accountId);
+        jdbc.update("DELETE FROM account_idempotency WHERE operation IN (?,?,?,?,?)",
+                "approve:" + accountId, "reject:" + accountId, "block:" + accountId,
+                "unblock:" + accountId, "reset:" + accountId);
         return jdbc.update("DELETE FROM app_account WHERE id=? AND role='USER'", accountId) == 1;
     }
 

@@ -78,6 +78,11 @@ export class AccountsApi {
       { version: account.version }, key);
   }
 
+  rejectAccount(account: Account, key: string): Promise<Account> {
+    return this.post<Account>('/admin/users/' + encodeURIComponent(account.id) + '/reject',
+      { version: account.version }, key);
+  }
+
   setBlocked(account: Account, blocked: boolean, key: string): Promise<Account> {
     const action = blocked ? 'block' : 'unblock';
     return this.post<Account>('/admin/users/' + encodeURIComponent(account.id) + '/' + action,

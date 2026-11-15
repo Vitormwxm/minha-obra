@@ -31,6 +31,9 @@ public class SessionContextService {
         return AccountService.session(a,p.mfaVerified());
     }
     public Accounts.Session start(Account account,boolean mfaVerified,HttpServletRequest request,HttpServletResponse response) {
+        if ("AUTHENTICATED".equals(AccountService.stage(account, mfaVerified))) {
+            account = accounts.recordAccess(account);
+        }
         var old=request.getSession(false);if(old!=null)old.invalidate();
         request.getSession(true);
         SessionPrincipal principal=new SessionPrincipal(account.id(),account.authVersion(),mfaVerified,clock.millis());

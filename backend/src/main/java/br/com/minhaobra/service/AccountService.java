@@ -74,6 +74,8 @@ public class AccountService {
         Account account = found.get();
         if (account.isPendingApproval())
             throw new ApiException(403, "ACCOUNT_PENDING_APPROVAL", "Sua solicitação aguarda aprovação do administrador.");
+        if (account.isRejected())
+            throw new ApiException(403, "ACCOUNT_REJECTED", "Sua solicitação foi reprovada. Fale com o administrador.");
         if (!account.isActive())
             throw ApiException.unauthorized();
         return account;
@@ -139,16 +141,30 @@ public class AccountService {
 
     @Transactional
     public Accounts.User approve(SessionPrincipal actor, UUID target, UUID key, long version) {
+        return decideRequest(actor, target, key, version, true);
+    }
+
+    @Transactional
+    public Accounts.User reject(SessionPrincipal actor, UUID target, UUID key, long version) {
+        return decideRequest(actor, target, key, version, false);
+    }
+
+    private Accounts.User decideRequest(SessionPrincipal actor, UUID target, UUID key, long version, boolean approve) {
         requireAdmin(actor, true);
-        String operation = "approve:" + target;
+        String operation = (approve ? "approve:" : "reject:") + target;
         return idempotent(actor.accountId(), operation, key, crypto.fingerprint(operation, Long.toString(version)), () -> {
             Account account = editableUser(actor, target, version);
-            if (!account.isPendingApproval())
+            if (!account.isPendingApproval() && !(approve && account.isRejected()))
                 throw new ApiException(409, "ACCOUNT_NOT_PENDING", "Esta conta não aguarda aprovação.");
-            Account approved = repository.status(target, "ACTIVE");
-            repository.event(actor.accountId(), target, "ACCOUNT_APPROVED");
-            return Accounts.User.from(approved);
+            Account decided = repository.status(target, approve ? "ACTIVE" : "REJECTED");
+            repository.event(actor.accountId(), target, approve ? "ACCOUNT_APPROVED" : "ACCOUNT_REJECTED");
+            return Accounts.User.from(decided);
         });
+    }
+
+    public Account recordAccess(Account account) {
+        return repository.recordAccess(account.id(), account.authVersion())
+                .orElseThrow(() -> new ApiException(401, "SESSION_EXPIRED", "Sua sessão expirou. Entre novamente."));
     }
 
     @Transactional
@@ -215,6 +231,8 @@ public class AccountService {
     }
 
     private static void requireApproved(Account account) {
+        if (account.isRejected())
+            throw new ApiException(409, "ACCOUNT_REJECTED", "Aprove a solicitação antes de alterar o acesso.");
         if (account.isPendingApproval())
             throw new ApiException(409, "ACCOUNT_PENDING_APPROVAL", "Aprove a solicitação antes de alterar o acesso.");
     }
