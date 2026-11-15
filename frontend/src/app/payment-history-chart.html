@@ -1,0 +1,28 @@
+@if (bars().length) {
+  <figure aria-labelledby="payments-chart-title" aria-describedby="payments-chart-caption">
+    <figcaption>
+      <h3 id="payments-chart-title">Pagamentos registrados por mês</h3>
+      <p id="payments-chart-caption">Totais pagos à CAIXA e à construtora, por mês de vencimento. Deslize na horizontal para ver mais meses.</p>
+      <ul class="chart-legend" aria-label="Legenda">
+        <li><span class="caixa-series" aria-hidden="true"></span>CAIXA</li>
+        <li><span class="builder-series" aria-hidden="true"></span>Construtora</li>
+      </ul>
+    </figcaption>
+    <div class="chart-scroll" role="region" aria-label="Histórico mensal de pagamentos" tabindex="0">
+      <ul class="chart-bars">
+        @for (bar of bars(); track bar.month) {
+          <li [attr.aria-label]="bar.accessibleMonth + ': CAIXA, ' + bar.caixaValue + '; construtora, ' + bar.builderValue + '; total, ' + bar.total">
+            <strong aria-hidden="true">{{ bar.total }}</strong>
+            <div class="chart-track" aria-hidden="true">
+              <span class="caixa-series" [style.height.%]="bar.caixa"></span>
+              <span class="builder-series" [style.height.%]="bar.builder"></span>
+            </div>
+            <time [attr.datetime]="bar.month" aria-hidden="true">{{ bar.label }}</time>
+          </li>
+        }
+      </ul>
+    </div>
+  </figure>
+} @else {
+  <p class="inline-note">Registre um pagamento na planilha para ver o histórico aqui.</p>
+}

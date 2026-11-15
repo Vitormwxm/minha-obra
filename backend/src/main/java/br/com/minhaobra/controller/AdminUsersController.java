@@ -31,6 +31,12 @@ public class AdminUsersController {
         return accounts.approve(sessions.principal(auth), id, key, body.version());
     }
 
+    @PostMapping("/{id}/reject")
+    public Accounts.User reject(Authentication auth, @PathVariable UUID id,
+            @RequestHeader("Idempotency-Key") UUID key, @Valid @RequestBody Accounts.Version body) {
+        return accounts.reject(sessions.principal(auth), id, key, body.version());
+    }
+
     @PostMapping("/{id}/block")
     public Accounts.User block(Authentication auth, @PathVariable UUID id, @RequestHeader("Idempotency-Key") UUID key,
             @Valid @RequestBody Accounts.Version body) {

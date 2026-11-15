@@ -26,7 +26,8 @@ h1:focus { outline: none; }
 .account-access small { font-size: 9px; color: #738475; }
 .status-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 .password-pending { font-size: 8px; line-height: 1.6; color: #8b7344; }
-.creation-date { font-size: 10px; color: #718174; line-height: 1.8; }
+.account-dates { display: grid; gap: 7px; font-size: 11px; color: var(--muted); line-height: 1.55; }
+.account-dates strong { color: var(--heading); font-weight: 600; }
 .mobile-label { display: none; }
 .row-actions { display: flex; align-items: flex-start; flex-direction: column; gap: 5px; }
 .row-action { border: 0; background: transparent; padding: 5px 0; font-size: 10px; color: var(--green); text-align: left; min-height: 28px; font-weight: 500; }
@@ -35,7 +36,7 @@ h1:focus { outline: none; }
 .block-action { color: #a15a4b; }
 .protected-account { color: #9aa69c; font-size: 9px; line-height: 1.7; }
 .empty-state { padding: 55px 20px; text-align: center; color: var(--muted); }
-.empty-state h2 { font-size: 14px; font-weight: 500; color: #47614d; margin: 15px 0 8px; }
+.empty-state h2 { font-size: 14px; font-weight: 500; margin: 15px 0 8px; }
 .empty-state p { font-size: 11px; line-height: 1.8; margin: 15px 0 0; }
 .empty-symbol { font-size: 32px; color: #7d9b7f; display: inline-block; }
 .pagination { border-top: 1px solid #e5ece1; padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; gap: 20px; font-size: 10px; color: #768879; }
@@ -64,6 +65,6 @@ h1:focus { outline: none; }
 .password-tools button { font-size: 10px; min-height: 30px; }
 .blocked-note { font-size: 10px; margin-top: 15px; color: #a15a4b; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-@media (max-width: 900px) { .list-heading, .account-row { grid-template-columns: minmax(150px, 1.25fr) minmax(125px, 1fr) minmax(105px, .8fr); gap: 16px; } .list-heading > span:nth-child(3), .creation-date { display: none; } }
-@media (max-width: 640px) { .section-heading { align-items: flex-start; flex-direction: column; gap: 20px; } .section-heading h1 { font-size: 29px; } .section-heading > button { width: 100%; } .panel-toolbar { flex-direction: column; align-items: stretch; gap: 8px; padding: 18px; } .search-form { max-width: none; } .refresh { align-self: flex-end; min-height: 30px; } .list-heading { display: none; } .account-row { display: grid; grid-template-columns: 1fr auto; gap: 17px 12px; padding: 22px 18px; } .person { grid-column: 1 / -1; } .person h2 { font-size: 13px; } .person p { font-size: 11px; } .avatar { width: 40px; height: 40px; } .creation-date { display: block; grid-column: 1 / -1; grid-row: 3; font-size: 9px; } .mobile-label { display: inline; } .row-actions { align-items: flex-end; justify-content: center; } .row-action { min-height: 34px; font-size: 10px; } .account-access { padding-left: 52px; } .pagination { flex-wrap: wrap; gap: 12px; padding: 16px 18px; font-size: 9px; } .pagination > div { margin-left: auto; gap: 8px; } .pagination-button { width: 32px; height: 32px; } }
+@media (max-width: 900px) { .list-heading, .account-row { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, .9fr); gap: 14px; } }
+@media (max-width: 640px) { .section-heading { align-items: flex-start; flex-direction: column; gap: 20px; } .section-heading h1 { font-size: 29px; } .section-heading > button { width: 100%; } .panel-toolbar { flex-direction: column; align-items: stretch; gap: 8px; padding: 18px; } .search-form { max-width: none; } .refresh { align-self: flex-end; min-height: 30px; } .list-heading { display: none; } .account-row { display: grid; grid-template-columns: 1fr auto; gap: 17px 12px; padding: 22px 18px; } .person { grid-column: 1 / -1; } .person h2 { font-size: 13px; } .person p { font-size: 11px; } .avatar { width: 40px; height: 40px; } .account-dates { grid-column: 1 / -1; grid-row: 3; grid-template-columns: 1fr 1fr; gap: 12px; } .mobile-label { display: inline; } .row-actions { align-items: flex-end; justify-content: center; } .row-action { min-height: 44px; font-size: 11px; } .account-access { padding-left: 52px; } .pagination { flex-wrap: wrap; gap: 12px; padding: 16px 18px; font-size: 9px; } .pagination > div { margin-left: auto; gap: 8px; } .pagination-button { width: 32px; height: 32px; } }
 @media (max-width: 340px) { .account-dialog { padding: 22px; width: calc(100vw - 24px); } .dialog-actions { flex-direction: column-reverse; } .account-access { padding-left: 0; } .account-row { column-gap: 8px; } .section-heading h1 { font-size: 26px; } .search-form { gap: 7px; } .search-form input { padding-inline: 10px; font-size: 10px; } .search-form button { padding-inline: 11px; } }

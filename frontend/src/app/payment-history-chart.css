@@ -1,0 +1,19 @@
+:host { display: block; margin-top: 16px; min-width: 0; }
+figure { margin: 0; padding: clamp(12px, 3vw, 20px); border: 1px solid var(--border); border-radius: 12px; background: var(--canvas); }
+figcaption h3 { margin: 0 0 5px; font-size: 15px; }
+figcaption p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.chart-legend, .chart-bars { list-style: none; padding: 0; margin: 0; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 12px 0; font-size: 12px; }
+.chart-legend li { display: flex; gap: 6px; align-items: center; }
+.chart-legend span { width: 11px; height: 11px; border-radius: 2px; }
+.caixa-series { background: var(--green); }
+.builder-series { background: repeating-linear-gradient(135deg, #d69b40 0 5px, #f3c779 5px 10px); }
+.chart-scroll { overflow-x: auto; }
+.chart-scroll:focus-visible { outline-offset: -2px; }
+.chart-bars { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(112px, 138px); }
+.chart-bars li { text-align: center; min-width: 0; }
+.chart-bars strong, .chart-bars time { display: block; padding: 5px 3px; font-size: 12px; overflow-wrap: anywhere; }
+.chart-bars time { color: var(--muted); }
+.chart-track { display: flex; height: 132px; flex-direction: column-reverse; align-items: center; border-bottom: 1px solid var(--border);
+  background: repeating-linear-gradient(to top, transparent 0 calc(25% - 1px), var(--border) calc(25% - 1px) 25%); }
+.chart-track span { display: block; width: 38px; max-width: 60%; }

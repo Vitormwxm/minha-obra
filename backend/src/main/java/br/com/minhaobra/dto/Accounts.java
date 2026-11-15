@@ -11,10 +11,10 @@ public final class Accounts {
     }
 
     public record User(UUID id, String username, String displayName, String email, String role, String status,
-            boolean mustChangePassword, long version, Instant createdAt) {
+            boolean mustChangePassword, long version, Instant createdAt, Instant lastAccessAt) {
         public static User from(Account a) {
             return new User(a.id(), a.username(), a.displayName(), a.email(), a.role(), a.status(), a.mustChangePassword(),
-                    a.version(), a.createdAt());
+                    a.version(), a.createdAt(), a.lastAccessAt());
         }
 
         @Override

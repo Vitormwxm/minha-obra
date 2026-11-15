@@ -4,10 +4,11 @@ export interface Account {
   displayName: string;
   email: string | null;
   role: 'ADMIN' | 'USER';
-  status: 'ACTIVE' | 'BLOCKED' | 'PENDING_APPROVAL';
+  status: 'ACTIVE' | 'BLOCKED' | 'PENDING_APPROVAL' | 'REJECTED';
   mustChangePassword: boolean;
   version: number;
   createdAt: string;
+  lastAccessAt: string | null;
 }
 
 export interface AuthSession {

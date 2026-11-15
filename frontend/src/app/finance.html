@@ -44,7 +44,6 @@
             <div><span class="eyebrow">FINANCIAMENTO HABITACIONAL</span><h2 id="financing-summary">Apartamento CAIXA</h2></div>
             <div class="finance-actions">
               <button class="secondary-button" type="button" (click)="openFinancing()" [disabled]="busy()">Editar financiamento</button>
-              <button class="secondary-button" type="button" (click)="openProjection()" [disabled]="busy()">Simular evolução de obra</button>
               <button class="secondary-button" type="button" (click)="openBuilderProjection()" [disabled]="busy()">Simular construtora</button>
             </div>
           </div>
@@ -58,6 +57,14 @@
           </dl>
           <p class="muted">O subsídio aparece separado dos pagamentos e dos totais da planilha.</p>
         </article>
+
+        <section class="finance-panel" aria-labelledby="finance-charts-title">
+          <div class="section-heading">
+            <div><h2 id="finance-charts-title">Gráficos</h2><p class="muted">Compare os pagamentos registrados ou simule os próximos encargos da CAIXA.</p></div>
+            <button class="secondary-button" type="button" (click)="openProjection()" [disabled]="busy()">Ver gráfico da projeção</button>
+          </div>
+          <app-payment-history-chart [months]="data.months" />
+        </section>
 
         <section class="finance-panel ledger-panel" aria-labelledby="ledger-title">
           <div class="section-heading">
@@ -128,6 +135,10 @@
           <div><span class="eyebrow">PRIMEIRO PASSO</span><h2 id="first-financing-title">Cadastre seu financiamento CAIXA</h2><p>Escolha a partir de qual mês quer acompanhar os pagamentos.</p></div>
           <button class="primary-button" type="button" (click)="openFinancing()" [disabled]="busy()">Cadastrar financiamento <span aria-hidden="true">→</span></button>
         </article>
+        <section class="finance-panel" aria-labelledby="finance-charts-title">
+          <h2 id="finance-charts-title">Gráficos</h2>
+          <p class="inline-note">Cadastre o financiamento para simular a projeção e registre pagamentos para ver o histórico.</p>
+        </section>
       }
     }
   } @else if (view() === 'financing') {

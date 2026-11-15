@@ -13,7 +13,7 @@
       </form>
       <button class="text-button refresh" type="button" (click)="load()" [disabled]="loading() || busy()">{{ loading() ? 'Atualizando…' : 'Atualizar lista' }}</button>
     </div>
-    <div class="list-heading" aria-hidden="true"><span>Pessoa</span><span>Acesso</span><span>Criada em</span><span>Ações</span></div>
+    <div class="list-heading" aria-hidden="true"><span>Pessoa</span><span>Acesso</span><span>Datas da conta</span><span>Ações</span></div>
     <div [attr.aria-busy]="loading()" aria-live="polite">
       @if (loading() && !result().items.length) {
         <div class="empty-state"><span class="spinner" aria-hidden="true"></span><p>Carregando as contas…</p></div>
@@ -32,22 +32,29 @@
                 </div>
               </div>
               <div class="account-access">
-                <span class="status-tag" [class.active]="account.status === 'ACTIVE'" [class.blocked]="account.status === 'BLOCKED'" [class.pending]="account.status === 'PENDING_APPROVAL'">
+                <span class="status-tag" [class.active]="account.status === 'ACTIVE'" [class.blocked]="account.status === 'BLOCKED' || account.status === 'REJECTED'" [class.pending]="account.status === 'PENDING_APPROVAL'">
                   <span class="status-dot" aria-hidden="true"></span>
                   @switch (account.status) {
                     @case ('ACTIVE') { Ativa }
                     @case ('BLOCKED') { Bloqueada }
                     @case ('PENDING_APPROVAL') { Aguardando aprovação }
+                    @case ('REJECTED') { Reprovada }
                   }
                 </span>
                 <small>{{ account.role === 'ADMIN' ? 'Administrador' : 'Usuário' }}</small>
                 @if (account.mustChangePassword) { <span class="password-pending">Troca de senha pendente</span> }
               </div>
-              <div class="creation-date"><span class="mobile-label">Criada em </span>{{ createdOn(account.createdAt) }}</div>
+              <div class="account-dates">
+                <div>Criada em {{ createdOn(account.createdAt) }}</div>
+                <div><strong>Último acesso</strong><br>{{ lastAccessOn(account.lastAccessAt) }}</div>
+              </div>
               <div class="row-actions">
                 @if (account.role !== 'ADMIN' && account.id !== currentUser().id) {
                   @if (account.status === 'PENDING_APPROVAL') {
                     <button type="button" class="row-action approve-action" (click)="openAction('approve', account)" [disabled]="loading() || busy()" [attr.aria-label]="'Aprovar conta de ' + account.displayName">Aprovar</button>
+                    <button type="button" class="row-action block-action" (click)="openAction('reject', account)" [disabled]="loading() || busy()" [attr.aria-label]="'Reprovar solicitação de ' + account.displayName">Reprovar</button>
+                  } @else if (account.status === 'REJECTED') {
+                    <button type="button" class="row-action" (click)="openAction('approve', account)" [disabled]="loading() || busy()">Reconsiderar</button>
                   } @else {
                     <button type="button" class="row-action" (click)="openAction('reset', account)" [disabled]="loading() || busy()" [attr.aria-label]="'Redefinir senha de ' + account.displayName">Redefinir senha</button>
                     @if (account.status === 'ACTIVE') {
@@ -74,7 +81,7 @@
 <dialog #accountDialog class="account-dialog" aria-labelledby="dialog-title" (cancel)="cancelDialog($event)">
   @if (dialog(); as state) {
     <div class="dialog-top"><span class="eyebrow">PESSOAS E ACESSOS</span><button type="button" class="close-dialog" (click)="closeDialog()" [disabled]="busy()" aria-label="Fechar">×</button></div>
-    <h2 id="dialog-title">{{ state.kind === 'approve' ? 'Aprovar esta conta?' : state.kind === 'reset' ? 'Defina uma senha provisória.' : state.kind === 'block' ? 'Bloquear esta conta?' : 'Desbloquear esta conta?' }}</h2>
+    <h2 id="dialog-title">{{ state.kind === 'approve' ? 'Aprovar esta conta?' : state.kind === 'reject' ? 'Reprovar esta solicitação?' : state.kind === 'reset' ? 'Defina uma senha provisória.' : state.kind === 'block' ? 'Bloquear esta conta?' : 'Desbloquear esta conta?' }}</h2>
     <p class="dialog-person">
       <strong>{{ state.account.displayName }}</strong>
       <span>{{ state.account.username }}</span>
@@ -84,6 +91,8 @@
     <form [formGroup]="accountForm" (ngSubmit)="submit()" [attr.aria-busy]="busy()">
       @if (state.kind === 'approve') {
         <p class="dialog-description">A pessoa poderá entrar com a senha que escolheu ao solicitar a conta.</p>
+      } @else if (state.kind === 'reject') {
+        <p class="dialog-description">A pessoa ficará sem acesso. Você pode reconsiderar esta decisão na lista de contas.</p>
       } @else if (state.kind === 'reset') {
         <div class="field">
           <label for="temporary-password">Senha provisória</label>
@@ -100,8 +109,8 @@
       }
       <div class="dialog-actions">
         <button id="dialog-cancel" class="secondary-button" type="button" (click)="closeDialog()" [disabled]="busy()">Cancelar</button>
-        <button class="primary-button" [class.danger-button]="state.kind === 'block'" type="submit" [disabled]="busy()">
-          {{ busy() ? 'Salvando…' : state.kind === 'approve' ? 'Aprovar conta' : state.kind === 'reset' ? 'Redefinir senha' : state.kind === 'block' ? 'Bloquear conta' : 'Desbloquear conta' }}
+        <button class="primary-button" [class.danger-button]="state.kind === 'block' || state.kind === 'reject'" type="submit" [disabled]="busy()">
+          {{ busy() ? 'Salvando…' : state.kind === 'approve' ? 'Aprovar conta' : state.kind === 'reject' ? 'Reprovar solicitação' : state.kind === 'reset' ? 'Redefinir senha' : state.kind === 'block' ? 'Bloquear conta' : 'Desbloquear conta' }}
         </button>
       </div>
     </form>

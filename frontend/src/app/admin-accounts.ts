@@ -5,8 +5,11 @@ import { AccountsApi, apiMessage } from './accounts-api';
 import { Account, AccountPage } from './accounts.models';
 import { newTemporaryPassword, OperationKey, passwordProblem, passwordValidator } from './security-input';
 
-type AccountAction = 'approve' | 'reset' | 'block' | 'unblock';
+type AccountAction = 'approve' | 'reject' | 'reset' | 'block' | 'unblock';
 type AccountDialog = { kind: AccountAction; account: Account };
+const lastAccessFormat = new Intl.DateTimeFormat('pt-BR', {
+  dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Fortaleza',
+});
 
 @Component({
   selector: 'app-admin-accounts',
@@ -151,6 +154,9 @@ export class AdminAccounts implements OnInit, OnDestroy {
         if (state.kind === 'approve') {
           await this.api.approveAccount(state.account, key);
           this.notice.set('Conta aprovada. A pessoa já pode entrar com a senha que escolheu.');
+        } else if (state.kind === 'reject') {
+          await this.api.rejectAccount(state.account, key);
+          this.notice.set('Solicitação reprovada. Você pode reconsiderar a decisão na lista.');
         } else {
           await this.api.setBlocked(state.account, state.kind === 'block', key);
           this.notice.set(state.kind === 'block' ? 'Conta bloqueada. Os acessos anteriores foram encerrados.' : 'Conta desbloqueada.');
@@ -188,9 +194,16 @@ export class AdminAccounts implements OnInit, OnDestroy {
     }).format(date);
   }
 
+  lastAccessOn(value: string | null): string {
+    if (!value) return 'Sem registro';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? 'Sem registro' : lastAccessFormat.format(date);
+  }
+
   private canAct(kind: AccountAction, account: Account): boolean {
     if (account.id === this.currentUser().id || account.role === 'ADMIN') return false;
-    if (kind === 'approve') return account.status === 'PENDING_APPROVAL';
+    if (kind === 'approve') return account.status === 'PENDING_APPROVAL' || account.status === 'REJECTED';
+    if (kind === 'reject') return account.status === 'PENDING_APPROVAL';
     if (kind === 'block') return account.status === 'ACTIVE';
     if (kind === 'unblock') return account.status === 'BLOCKED';
     return account.status === 'ACTIVE' || account.status === 'BLOCKED';
