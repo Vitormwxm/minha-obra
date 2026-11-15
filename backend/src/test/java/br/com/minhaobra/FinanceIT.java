@@ -332,6 +332,20 @@ class FinanceIT {
         assertEquals("MANUAL", tr.get("origin").asString());
         assertEquals("0", tr.get("rate").asString());
 
+        var estimateInput = Map.of("month", "2025-03", "releasedCents", 2_000_000,
+                "insuranceCents", 33, "feesCents", 22);
+        var estimate = browser.send("POST", FINANCE + "/tr/estimate", estimateInput, null, true);
+        assertStatus(200, estimate);
+        assertEquals("0.100012", json.readTree(estimate.body()).get("rate").asString());
+        var savedMonth = browser.ledger().get("months").get(0);
+        assertEquals(version, savedMonth.get("version").asLong());
+        assertEquals("0", savedMonth.get("manualTr").asString());
+        assertEquals(2_000_000, savedMonth.get("releasedCents").asLong());
+        assertEquals(33, savedMonth.get("insuranceCents").asLong());
+        assertEquals(22, savedMonth.get("feesCents").asLong());
+        assertError(404, "MONTH_NOT_FOUND", browser.send("POST", FINANCE + "/tr/estimate",
+                Map.of("month", "2025-02", "releasedCents", 2_000_000, "insuranceCents", 33, "feesCents", 22), null, true));
+
         historical.put("version", version);
         historical.put("trSettings", Map.of("periodStart", "2025-03-01", "periodEnd", "2025-04-01"));
         assertStatus(200, browser.save(path, historical));

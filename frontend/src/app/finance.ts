@@ -55,7 +55,7 @@ export class Finance implements OnInit {
   readonly editingMonth = signal<LedgerMonth | null>(null);
   readonly confirmingDelete = signal(false);
   readonly officialLookup = signal<{ rate: string | null } | null>(null);
-  readonly consultingTr = signal(false);
+  readonly estimatedTr = signal<{ rate: string | null } | null>(null);
   readonly projection = signal<ProjectionReport | null>(null);
   readonly canDownloadProjection = !/MinhaObraAndroid\//.test(navigator.userAgent);
   readonly today = this.dateToday();
@@ -64,6 +64,7 @@ export class Finance implements OnInit {
     const row = this.snapshot()?.months.slice().reverse().find((entry) => entry.month <= month && entry.tr);
     return row?.tr ? { month: row.month, tr: row.tr } : null;
   });
+  readonly paidCaixaMonths = computed(() => this.snapshot()?.months.filter(month => month.caixaStatus === 'PAID') ?? []);
   readonly minTrDate = MIN_TR_DATE;
   readonly paymentLimit = 100;
   readonly statuses: Record<PaymentStatus, string> = {
@@ -81,11 +82,13 @@ export class Finance implements OnInit {
     month: '', caixaDue: '', builderDue: '',
     caixaStatus: this.forms.control<PaymentStatus>('OPEN'),
     builderStatus: this.forms.control<PaymentStatus>('OPEN'),
-    released: '', insurance: '', fees: '', trPeriodStart: '', trPeriodEnd: '', manualTr: '', payments: this.payments,
+    payments: this.payments,
   });
   readonly projectionForm = this.forms.group({
     startMonth: this.today.slice(0, 7), openingBalance: '', monthlyTr: '', insurance: '', fees: '',
   });
+  readonly officialTrForm = this.forms.group({ start: '', end: '' });
+  readonly estimatedTrForm = this.forms.group({ month: '', balance: '', insurance: '', fees: '' });
 
   ngOnInit(): void { void this.reload(); }
 
@@ -123,10 +126,6 @@ export class Finance implements OnInit {
       month: existing?.month ?? snapshot.missingMonths[0] ?? this.nextMonth(snapshot),
       caixaDue: existing?.caixaDueDate ?? '', builderDue: existing?.builderDueDate ?? '',
       caixaStatus: existing?.caixaStatus ?? 'OPEN', builderStatus: existing?.builderStatus ?? 'OPEN',
-      released: this.inputAmount(existing?.releasedCents), insurance: this.inputAmount(existing?.insuranceCents),
-      fees: this.inputAmount(existing?.feesCents),
-      trPeriodStart: existing?.trPeriodStart ?? '', trPeriodEnd: existing?.trPeriodEnd ?? '',
-      manualTr: existing?.manualTr?.replace('.', ',') ?? '',
     });
     existing?.payments.forEach((payment) => this.payments.push(this.paymentForm(payment)));
     this.show('month');
@@ -139,6 +138,9 @@ export class Finance implements OnInit {
   openProjection(): void {
     const financing = this.snapshot()?.financing;
     if (financing) this.projectionForm.controls.openingBalance.setValue(this.inputAmount(financing.releasedCents));
+    const historical = this.snapshot()?.months.find(month => month.month === this.recentTr()?.month);
+    this.officialTrForm.reset({ start: historical?.trPeriodStart ?? '', end: historical?.trPeriodEnd ?? '' });
+    this.selectTrMonth(this.paidCaixaMonths().at(-1)?.month ?? '');
     this.projection.set(null);
     this.show('projection');
   }
@@ -191,15 +193,32 @@ export class Finance implements OnInit {
 
   async lookupOfficialTr(): Promise<void> {
     await this.runAction('Não foi possível consultar a TR oficial. Tente novamente.', async () => {
-      const period = this.readTrPeriod();
-      if (!period) throw new InputProblem('tr-period-start', 'Informe as duas datas do período contratual para consultar a TR.');
-      this.consultingTr.set(true);
       this.officialLookup.set(null);
-      try {
-        this.officialLookup.set(await this.api.officialTr(period.periodStart, period.periodEnd));
-      } finally {
-        this.consultingTr.set(false);
+      const period = this.readTrPeriod();
+      this.officialLookup.set(await this.api.officialTr(period.periodStart, period.periodEnd));
+    });
+  }
+
+  selectTrMonth(month: string): void {
+    const entry = this.paidCaixaMonths().find(row => row.month === month);
+    this.estimatedTr.set(null);
+    this.estimatedTrForm.reset({
+      month, balance: this.inputAmount(entry?.releasedCents), insurance: this.inputAmount(entry?.insuranceCents),
+      fees: this.inputAmount(entry?.feesCents),
+    });
+  }
+
+  async estimateHistoricalTr(): Promise<void> {
+    await this.runAction('Não foi possível estimar a TR desses pagamentos. Tente novamente.', async () => {
+      this.estimatedTr.set(null);
+      const values = this.estimatedTrForm.getRawValue();
+      if (!this.paidCaixaMonths().some(entry => entry.month === values.month)) {
+        throw new InputProblem('estimate-tr-month', 'Escolha um mês com pagamento à CAIXA quitado.');
       }
+      const balance = this.requiredMoney(values.balance, 'estimate-tr-balance', 'saldo-base do mês');
+      const insurance = this.requiredMoney(values.insurance, 'estimate-tr-insurance', 'seguro do mês', true);
+      const fees = this.requiredMoney(values.fees, 'estimate-tr-fees', 'taxas do mês', true);
+      this.estimatedTr.set(await this.api.estimateTr(values.month, balance, insurance, fees));
     });
   }
 
@@ -266,10 +285,6 @@ export class Finance implements OnInit {
       if (!existing && snapshot.months.some((row) => row.month === month)) {
         throw new InputProblem('ledger-month', 'Este mês já foi lançado. Abra os detalhes dele na planilha para editar.');
       }
-      const released = this.optionalMoney(values.released, 'month-released', 'saldo liberado no mês');
-      if (released !== null && released > financing.financedCents) {
-        throw new InputProblem('month-released', 'O saldo liberado no mês deve ser igual ou menor que o valor do financiamento.');
-      }
       const payments = values.payments.map((payment, index): Payment => {
         const paidOn = this.date(payment.paidOn, 'payment-date-' + index, 'data do pagamento');
         if (paidOn > this.today) throw new InputProblem('payment-date-' + index, 'A data do pagamento deve ser hoje ou anterior.');
@@ -282,18 +297,14 @@ export class Finance implements OnInit {
       });
       this.checkStatus(values.caixaStatus, 'CAIXA', payments, 'caixa-status');
       this.checkStatus(values.builderStatus, 'CONSTRUTORA', payments, 'builder-status');
-      const period = this.readTrPeriod();
       const payload: MonthDraft = {
         version: existing?.version ?? null,
         caixaDueDate: this.dueDate(values.caixaDue, month, 'caixa-due'),
         builderDueDate: this.dueDate(values.builderDue, month, 'builder-due'),
         caixaStatus: values.caixaStatus, builderStatus: values.builderStatus,
-        releasedCents: released, insuranceCents: this.optionalMoney(values.insurance, 'insurance', 'seguro'),
-        feesCents: this.optionalMoney(values.fees, 'fees', 'taxas'), payments,
-        trSettings: {
-          periodStart: period?.periodStart ?? null, periodEnd: period?.periodEnd ?? null,
-          manualRate: this.optionalPercent(values.manualTr, 'manual-tr'),
-        },
+        // Preserve historical calculation inputs when editing only the payment record.
+        releasedCents: existing?.releasedCents ?? null, insuranceCents: existing?.insuranceCents ?? null,
+        feesCents: existing?.feesCents ?? null, payments,
       };
       await this.api.saveMonth(month, payload, await this.monthKey.forPayload(month, payload));
       this.monthKey.clear();
@@ -347,11 +358,10 @@ export class Finance implements OnInit {
     return rate;
   }
 
-  private readTrPeriod(): { periodStart: string; periodEnd: string } | null {
-    const values = this.monthForm.getRawValue();
-    if (!values.trPeriodStart.trim() && !values.trPeriodEnd.trim()) return null;
-    const periodStart = this.date(values.trPeriodStart, 'tr-period-start', 'data inicial');
-    const periodEnd = this.date(values.trPeriodEnd, 'tr-period-end', 'data final');
+  private readTrPeriod(): { periodStart: string; periodEnd: string } {
+    const values = this.officialTrForm.getRawValue();
+    const periodStart = this.date(values.start, 'tr-period-start', 'data inicial');
+    const periodEnd = this.date(values.end, 'tr-period-end', 'data final');
     if (periodStart < MIN_TR_DATE) throw new InputProblem('tr-period-start', 'O período da TR deve começar em 01/02/1991 ou depois.');
     const days = (Date.parse(periodEnd) - Date.parse(periodStart)) / 86_400_000;
     if (days <= 0 || days > TR_MAX_DAYS) {

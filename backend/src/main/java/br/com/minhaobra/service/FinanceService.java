@@ -77,6 +77,20 @@ public class FinanceService {
         return new Finance.OfficialTrResult(rate.map(FinanceService::rateString).orElse(null));
     }
 
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public Finance.EstimateTrResult estimateTr(SessionPrincipal principal, Finance.EstimateTrInput input) {
+        Financing financing = requireFinancing(authenticatedAccount(principal).id());
+        YearMonth competence = parseMonth(input.month());
+        PaymentMonth month = finance.month(financing.id(), competence)
+                .orElseThrow(() -> new ApiException(404, "MONTH_NOT_FOUND", "Lançamento mensal não encontrado."));
+        long releasedCents = input.releasedCents().longValueExact();
+        checkReleased(releasedCents, financing.financedCents());
+        var payments = finance.payments(financing.id()).getOrDefault(competence, List.of());
+        var rate = ConstructionTr.estimate(month, payments, financing.annualNominalRate(),
+                releasedCents, input.insuranceCents().longValueExact(), input.feesCents().longValueExact());
+        return new Finance.EstimateTrResult(rate.map(FinanceService::rateString).orElse(null));
+    }
+
     @Transactional
     public Finance.Revision saveFinancing(SessionPrincipal principal, UUID key, Finance.FinancingInput input) {
         UUID owner = lockOwner(principal);

@@ -133,6 +133,10 @@ export class FinanceApi {
     return this.accounts.mutate('POST', '/finance/tr/official', { startDate, endDate });
   }
 
+  estimateTr(month: string, releasedCents: number, insuranceCents: number, feesCents: number): Promise<{ rate: string | null }> {
+    return this.accounts.mutate('POST', '/finance/tr/estimate', { month, releasedCents, insuranceCents, feesCents });
+  }
+
   project(assumptions: ProjectionAssumptions, startMonth: string, releasedCents: number): Promise<FinanceProjection> {
     return this.accounts.mutate('POST', '/finance/projection', { ...assumptions, startMonth, releasedCents });
   }

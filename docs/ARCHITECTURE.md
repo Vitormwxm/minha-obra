@@ -53,7 +53,7 @@ agendamento automático ou retenção de 30 dias aprovada.
 Em **Minha obra**, cada pessoa informa o valor financiado, o saldo liberado,
 os juros nominais anuais, a entrega prevista, o início do acompanhamento e,
 se houver, o subsídio. Os lançamentos mensais aceitam vencimentos separados
-para CAIXA e construtora, saldo liberado, seguro, taxas e pagamentos por data.
+para CAIXA e construtora, situação e pagamentos por data.
 Um pagamento pode incluir encargos de atraso já contabilizados no valor pago.
 
 A planilha mostra o valor pago a cada parte, o total do mês quando ambos os
@@ -64,20 +64,23 @@ até o último mês cadastrado. A API associa o financiamento à conta da sessã
 
 ## TR e projeção
 
-A planilha mostra uma TR por mês. O valor manual tem prioridade. Ao consultar
-a taxa oficial, o usuário informa o início e o fim do período conforme o
-contrato. O servidor só usa a taxa da série SGS 226 que coincide com as duas
+A tela de simulação reúne a TR projetada, a consulta oficial e a estimativa
+por mês quitado. O usuário pode informar uma hipótese manual ou aproveitar
+uma taxa encontrada como referência. Na consulta oficial, informa o início e
+o fim do período conforme o contrato. O servidor só usa a taxa da série SGS 226 que coincide com as duas
 datas. As consultas bem-sucedidas ficam em cache no PostgreSQL por período.
 A consulta externa envia apenas a data inicial e é feita sob demanda.
 [Histórico da série SGS 226](https://www3.bcb.gov.br/sgspub/consultarvalores/consultarValoresSeries.do?method=consultarSeries&series=226).
 
-Na falta de taxa manual ou oficial, a estimativa usa o total quitado à CAIXA
-menos seguro, taxas e encargos de atraso, com o saldo-base daquele lançamento
-e os juros nominais anuais cadastrados no financiamento. O modelo estima a TR
+A estimativa sob demanda usa o total quitado à CAIXA menos seguro, taxas
+e encargos de atraso, com o saldo-base informado na simulação e os juros
+nominais anuais cadastrados no financiamento. O modelo estima a TR
 invertendo a soma da correção com os juros sobre o saldo corrigido. Pagamentos
 em atraso precisam ter o encargo informado, inclusive quando for zero. A
 estimativa fica vazia se faltarem dados ou a diferença for incompatível com
 o modelo. Os encargos efetivos seguem as cláusulas do contrato.
+As referências de TR já salvas continuam disponíveis na simulação. Editar um
+pagamento preserva os parâmetros históricos salvos daquele mês.
 [Cartilha da CAIXA sobre a fase de obras](https://www.caixa.gov.br/Downloads/habitacao-documentos-gerais/Cartilha_Juros_Fase_de_Obras.pdf).
 
 A projeção abrange os encargos da CAIXA do primeiro mês escolhido até o mês

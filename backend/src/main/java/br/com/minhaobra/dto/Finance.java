@@ -64,6 +64,16 @@ public final class Finance {
     public record OfficialTrResult(String rate) {
     }
 
+    public record EstimateTrInput(
+            @NotNull @Pattern(regexp = MONTH_PATTERN) String month,
+            @NotNull @Digits(integer = 11, fraction = 0) @Min(1) @Max(MAX_CENTS) BigDecimal releasedCents,
+            @NotNull @Digits(integer = 11, fraction = 0) @Min(0) @Max(MAX_CENTS) BigDecimal insuranceCents,
+            @NotNull @Digits(integer = 11, fraction = 0) @Min(0) @Max(MAX_CENTS) BigDecimal feesCents) {
+    }
+
+    public record EstimateTrResult(String rate) {
+    }
+
     public enum TrOrigin {
         OFFICIAL, ESTIMATED, MANUAL
     }

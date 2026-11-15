@@ -85,7 +85,7 @@
             </div>
           }
           @if (data.months.length) {
-            <p id="ledger-help" class="muted">O traço indica valor desconhecido. A coluna de TR fica vazia quando a taxa está indisponível. Os acumulados somam os pagamentos registrados. A variação compara meses consecutivos concluídos.</p>
+            <p id="ledger-help" class="muted">O traço indica valor desconhecido. Os acumulados somam os pagamentos registrados. A variação compara meses consecutivos concluídos.</p>
             <div class="ledger-scroll" role="region" aria-label="Planilha mensal de pagamentos" tabindex="0">
               <table class="ledger" role="table" aria-describedby="ledger-help">
                 <thead role="rowgroup">
@@ -98,7 +98,6 @@
                     <th scope="col" role="columnheader">Construtora acumulado</th>
                     <th scope="col" role="columnheader">Total acumulado</th>
                     <th scope="col" role="columnheader">Variação mensal</th>
-                    <th scope="col" role="columnheader">TR</th>
                     <th scope="col" role="columnheader">Ações</th>
                   </tr>
                 </thead>
@@ -113,13 +112,6 @@
                       <td role="cell"><span class="mobile-label" aria-hidden="true">Construtora acumulado</span>{{ amount(row.builderAccumulatedCents) }}</td>
                       <td role="cell"><span class="mobile-label" aria-hidden="true">Total acumulado</span>{{ amount(row.accumulatedPaidCents) }}</td>
                       <td role="cell"><span class="mobile-label" aria-hidden="true">Variação mensal</span>{{ amount(row.monthlyVariationCents) }}</td>
-                      <td role="cell" class="ledger-payer" [attr.aria-label]="row.tr ? null : 'TR indisponível'">
-                        <span class="mobile-label" aria-hidden="true">TR</span>
-                        @if (row.tr; as tr) {
-                          <strong>{{ percent(tr.rate) }}</strong>
-                          <span class="status-tag" [class.active]="tr.origin === 'OFFICIAL'" [class.pending]="tr.origin === 'ESTIMATED'" [class.manual-tag]="tr.origin === 'MANUAL'">{{ trOrigins[tr.origin] }}</span>
-                        }
-                      </td>
                       <td role="cell" class="ledger-details"><button class="text-button" type="button" (click)="openMonth(row)" [disabled]="busy()" [attr.aria-label]="'Abrir detalhes de ' + monthLabel(row.month)">Detalhes <span aria-hidden="true">→</span></button></td>
                     </tr>
                   }
@@ -173,7 +165,7 @@
         </div>
         <div class="form-grid payer-grid">
           <fieldset class="payer">
-            <legend>CAIXA · Evolução de obra</legend>
+            <legend>CAIXA</legend>
             <div class="field"><label for="caixa-status">Situação da CAIXA</label><select id="caixa-status" formControlName="caixaStatus" [attr.aria-invalid]="invalidField() === 'caixa-status'"><option value="OPEN">Em aberto</option><option value="PAID">Quitado</option><option value="NO_PAYMENT">Sem pagamento</option></select></div>
             <div class="field"><label for="caixa-due">Vencimento CAIXA <span>(opcional)</span></label><input id="caixa-due" type="date" formControlName="caixaDue" min="1900-01-01" max="2100-12-31" placeholder="AAAA-MM-DD" [attr.aria-invalid]="invalidField() === 'caixa-due'" /></div>
           </fieldset>
@@ -184,49 +176,6 @@
           </fieldset>
         </div>
         <p class="muted form-help">Use “Sem pagamento” quando souber que não houve pagamento para aquela parte no mês. Para valores ainda em aberto, use “Em aberto”.</p>
-      </fieldset>
-
-      <fieldset class="form-fields" [disabled]="busy() || confirmingDelete()">
-        <legend class="form-legend">TR do mês</legend>
-        @if (editingMonth()?.tr; as tr) {
-          <p class="muted form-help">TR do lançamento salvo <strong>{{ percent(tr.rate) }}</strong> · {{ trOrigins[tr.origin] }}.</p>
-        }
-        <p id="tr-period-help" class="muted form-help">Informe as duas datas do período de correção que constam no contrato ou no extrato. A consulta usa esse período exato.</p>
-        <div class="form-grid three-fields tr-fields">
-          <div class="field">
-            <label for="tr-period-start">Início do período <span>(opcional)</span></label>
-            <input id="tr-period-start" type="date" formControlName="trPeriodStart" [min]="minTrDate" [max]="today" placeholder="AAAA-MM-DD" aria-describedby="tr-period-help" (input)="officialLookup.set(null)" [attr.aria-invalid]="invalidField() === 'tr-period-start'" />
-          </div>
-          <div class="field">
-            <label for="tr-period-end">Fim do período <span>(opcional)</span></label>
-            <input id="tr-period-end" type="date" formControlName="trPeriodEnd" [min]="minTrDate" [max]="today" placeholder="AAAA-MM-DD" aria-describedby="tr-period-help" (input)="officialLookup.set(null)" [attr.aria-invalid]="invalidField() === 'tr-period-end'" />
-          </div>
-          <div class="field">
-            <label for="manual-tr">TR manual (%) <span>(opcional)</span></label>
-            <input id="manual-tr" formControlName="manualTr" inputmode="decimal" maxlength="10" placeholder="Ex.: 0,15" aria-describedby="manual-tr-help" [attr.aria-invalid]="invalidField() === 'manual-tr'" />
-          </div>
-        </div>
-        <div class="finance-actions tr-fields">
-          <button class="secondary-button" type="button" (click)="lookupOfficialTr()">{{ consultingTr() ? 'Consultando…' : 'Consultar TR oficial' }}</button>
-          @if (officialLookup(); as lookup) {
-            <p class="muted form-help" role="status">
-              @if (lookup.rate !== null) { TR oficial de <strong>{{ percent(lookup.rate) }}</strong> encontrada para esse período. }
-              @else { TR oficial indisponível para esse período. }
-            </p>
-          }
-        </div>
-        <p id="manual-tr-help" class="muted form-help">Ao salvar, a TR manual tem prioridade. Apague o valor manual e salve para voltar à TR oficial disponível para o período ou à estimativa, quando os dados forem suficientes.</p>
-        <p class="muted form-help">A estimativa precisa da CAIXA quitada, saldo liberado, seguro e taxas. Para pagamentos após o vencimento ou sem vencimento informado, preencha os juros e a multa por atraso, inclusive zero quando souber que não foram cobrados.</p>
-      </fieldset>
-
-      <fieldset class="form-fields" [disabled]="busy() || confirmingDelete()">
-        <legend class="form-legend">Dados da evolução de obra</legend>
-        <div class="form-grid three-fields">
-          <div class="field"><label for="month-released">Saldo liberado no mês <span>(opcional)</span></label><input id="month-released" formControlName="released" inputmode="decimal" maxlength="22" placeholder="R$ 0,00" [attr.aria-invalid]="invalidField() === 'month-released'" /></div>
-          <div class="field"><label for="insurance">Seguro do mês <span>(opcional)</span></label><input id="insurance" formControlName="insurance" inputmode="decimal" maxlength="22" placeholder="R$ 0,00" [attr.aria-invalid]="invalidField() === 'insurance'" /></div>
-          <div class="field"><label for="fees">Taxas do mês <span>(opcional)</span></label><input id="fees" formControlName="fees" inputmode="decimal" maxlength="22" placeholder="R$ 0,00" [attr.aria-invalid]="invalidField() === 'fees'" /></div>
-        </div>
-        <p class="muted form-help">Use os valores do extrato da CAIXA. Deixe em branco quando não souber.</p>
       </fieldset>
 
       <fieldset class="form-fields" [disabled]="busy() || confirmingDelete()">
@@ -266,7 +215,7 @@
         <div class="finance-actions form-actions">
           @if (editingMonth()) { <button id="delete-month" class="text-button delete-button" type="button" (click)="setDeleteConfirmation(true)" [disabled]="busy()">Excluir lançamento</button> }
           <button class="secondary-button" type="button" (click)="backToSummary()" [disabled]="busy()">Voltar à planilha</button>
-          <button class="primary-button" type="submit" [disabled]="busy()">{{ busy() && !consultingTr() ? 'Salvando…' : 'Salvar lançamento' }}</button>
+          <button class="primary-button" type="submit" [disabled]="busy()">{{ busy() ? 'Salvando…' : 'Salvar lançamento' }}</button>
         </div>
       }
     </form>
@@ -301,6 +250,60 @@
         <button class="primary-button" type="submit" [disabled]="busy()">{{ busy() ? 'Calculando…' : 'Calcular projeção' }}</button>
       </div>
     </form>
+
+    <section class="finance-panel finance-form" aria-labelledby="projection-tr-tools">
+      <h2 id="projection-tr-tools">Consulta e estimativa da TR</h2>
+      <details class="tr-tool">
+        <summary>Consultar TR oficial</summary>
+        <form [formGroup]="officialTrForm" (ngSubmit)="lookupOfficialTr()" (input)="officialLookup.set(null); clearInputProblem()">
+          <fieldset class="form-fields" [disabled]="busy()">
+            <p id="tr-period-help" class="muted form-help">Informe o período de correção indicado no contrato ou no extrato da CAIXA.</p>
+            <div class="form-grid">
+              <div class="field"><label for="tr-period-start">Início do período</label><input id="tr-period-start" formControlName="start" type="date" [min]="minTrDate" [max]="today" aria-describedby="tr-period-help" [attr.aria-invalid]="invalidField() === 'tr-period-start'" /></div>
+              <div class="field"><label for="tr-period-end">Fim do período</label><input id="tr-period-end" formControlName="end" type="date" [min]="minTrDate" [max]="today" aria-describedby="tr-period-help" [attr.aria-invalid]="invalidField() === 'tr-period-end'" /></div>
+            </div>
+            <div class="finance-actions tr-fields">
+              <button class="secondary-button" type="submit">Consultar TR oficial</button>
+              @if (officialLookup(); as lookup) {
+                @if (lookup.rate !== null) {
+                  <p class="muted form-help" role="status">TR oficial de <strong>{{ percent(lookup.rate) }}</strong>.</p>
+                  <button class="text-button" type="button" (click)="useHistoricalTr(lookup.rate)">Usar como TR projetada</button>
+                } @else { <p class="muted form-help" role="status">TR oficial indisponível para esse período.</p> }
+              }
+            </div>
+          </fieldset>
+        </form>
+      </details>
+      @if (paidCaixaMonths().length) {
+        <details class="tr-tool">
+          <summary>Estimar TR de um mês quitado</summary>
+          <form [formGroup]="estimatedTrForm" (ngSubmit)="estimateHistoricalTr()" (input)="estimatedTr.set(null); clearInputProblem()">
+            <fieldset class="form-fields" [disabled]="busy()">
+              <p id="estimate-tr-help" class="muted form-help">Use os valores do extrato desse mês. A estimativa usa o pagamento à CAIXA já lançado e os juros nominais do contrato.</p>
+              <div class="form-grid">
+                <div class="field"><label for="estimate-tr-month">Mês quitado</label><select #trMonth id="estimate-tr-month" formControlName="month" (change)="selectTrMonth(trMonth.value)" [attr.aria-invalid]="invalidField() === 'estimate-tr-month'">
+                  @for (month of paidCaixaMonths(); track month.month) { <option [value]="month.month">{{ monthLabel(month.month) }}</option> }
+                </select></div>
+                <div class="field"><label for="estimate-tr-balance">Saldo-base do mês</label><input id="estimate-tr-balance" formControlName="balance" inputmode="decimal" maxlength="22" [attr.aria-invalid]="invalidField() === 'estimate-tr-balance'" /></div>
+                <div class="field"><label for="estimate-tr-insurance">Seguro do mês</label><input id="estimate-tr-insurance" formControlName="insurance" inputmode="decimal" maxlength="22" [attr.aria-invalid]="invalidField() === 'estimate-tr-insurance'" /></div>
+                <div class="field"><label for="estimate-tr-fees">Taxas do mês</label><input id="estimate-tr-fees" formControlName="fees" inputmode="decimal" maxlength="22" [attr.aria-invalid]="invalidField() === 'estimate-tr-fees'" /></div>
+              </div>
+              <div class="finance-actions tr-fields">
+                <button class="secondary-button" type="submit">Estimar TR</button>
+                @if (estimatedTr(); as estimate) {
+                  @if (estimate.rate !== null) {
+                    <p class="muted form-help" role="status">TR estimada de <strong>{{ percent(estimate.rate) }}</strong>.</p>
+                    <button class="text-button" type="button" (click)="useHistoricalTr(estimate.rate)">Usar como TR projetada</button>
+                  } @else {
+                    <p class="muted form-help" role="status">Confira os valores e os juros e multa por atraso informados no pagamento. Os dados disponíveis não permitem estimar a TR.</p>
+                  }
+                }
+              </div>
+            </fieldset>
+          </form>
+        </details>
+      }
+    </section>
 
     @if (projection(); as result) {
       <section class="finance-panel" aria-labelledby="projection-results">
