@@ -53,7 +53,7 @@ agendamento automático ou retenção de 30 dias aprovada.
 Em **Minha obra**, cada pessoa informa o valor financiado, o saldo liberado,
 os juros nominais anuais, a entrega prevista, o início do acompanhamento e,
 se houver, o subsídio. Os lançamentos mensais aceitam vencimentos separados
-para CAIXA e construtora, saldo liberado, seguro, taxas e pagamentos por data.
+para CAIXA e construtora, situação e pagamentos por data.
 Um pagamento pode incluir encargos de atraso já contabilizados no valor pago.
 
 A planilha mostra o valor pago a cada parte, o total do mês quando ambos os
@@ -64,20 +64,23 @@ até o último mês cadastrado. A API associa o financiamento à conta da sessã
 
 ## TR e projeção
 
-A planilha mostra uma TR por mês. O valor manual tem prioridade. Ao consultar
-a taxa oficial, o usuário informa o início e o fim do período conforme o
-contrato. O servidor só usa a taxa da série SGS 226 que coincide com as duas
+A tela de simulação reúne a TR projetada, a consulta oficial e a estimativa
+por mês quitado. O usuário pode informar uma hipótese manual ou aproveitar
+uma taxa encontrada como referência. Na consulta oficial, informa o início e
+o fim do período conforme o contrato. O servidor só usa a taxa da série SGS 226 que coincide com as duas
 datas. As consultas bem-sucedidas ficam em cache no PostgreSQL por período.
 A consulta externa envia apenas a data inicial e é feita sob demanda.
 [Histórico da série SGS 226](https://www3.bcb.gov.br/sgspub/consultarvalores/consultarValoresSeries.do?method=consultarSeries&series=226).
 
-Na falta de taxa manual ou oficial, a estimativa usa o total quitado à CAIXA
-menos seguro, taxas e encargos de atraso, com o saldo-base daquele lançamento
-e os juros nominais anuais cadastrados no financiamento. O modelo estima a TR
+A estimativa sob demanda usa o total quitado à CAIXA menos seguro, taxas
+e encargos de atraso, com o saldo-base informado na simulação e os juros
+nominais anuais cadastrados no financiamento. O modelo estima a TR
 invertendo a soma da correção com os juros sobre o saldo corrigido. Pagamentos
 em atraso precisam ter o encargo informado, inclusive quando for zero. A
 estimativa fica vazia se faltarem dados ou a diferença for incompatível com
 o modelo. Os encargos efetivos seguem as cláusulas do contrato.
+As referências de TR já salvas continuam disponíveis na simulação. Editar um
+pagamento preserva os parâmetros históricos salvos daquele mês.
 [Cartilha da CAIXA sobre a fase de obras](https://www.caixa.gov.br/Downloads/habitacao-documentos-gerais/Cartilha_Juros_Fase_de_Obras.pdf).
 
 A projeção abrange os encargos da CAIXA do primeiro mês escolhido até o mês
@@ -181,16 +184,15 @@ notificações.
 
 ## Plano de execução
 
-### Classificar pagamentos à construtora
+### Classificação dos pagamentos à construtora
 
-1. Acrescentar os tipos `Parcela mensal`, `Intercalada` e `Sinal / entrada`
-   aos pagamentos individuais da construtora. Manter o mês de vencimento e
-   permitir editar o tipo em lançamentos existentes. Preservar os valores e
-   identificar os pagamentos antigos que ainda precisam de classificação.
-2. No gráfico mensal, empilhar parcela e intercalada com cores e legenda
-   próprias. Permitir ocultar as intercaladas para comparar só as parcelas e
-   incluir o sinal para ver o desembolso completo. Manter o sinal oculto por
-   padrão no gráfico mensal.
-3. Incluir todos os pagamentos registrados nos totais, acumulados e no gráfico
-   de pizza. Identificar sinal, intercalada e parcela em separado no PDF do
-   histórico, inclusive quando os três ocorrerem na mesma competência.
+1. Os tipos `Parcela mensal`, `Intercalada` e `Sinal / entrada` se aplicam
+   aos pagamentos individuais da construtora. É possível mudar o tipo em
+   lançamentos existentes na mesma competência. Os pagamentos antigos
+   aparecem como `Sem classificação` até serem atualizados.
+2. O gráfico mensal empilha parcela e intercalada com cores e legenda
+   próprias. O usuário pode ocultar intercaladas e incluir o sinal. O sinal
+   começa oculto no gráfico mensal.
+3. Totais, acumulados e gráfico de pizza incluem todos os valores registrados.
+   O PDF do histórico discrimina os tipos, inclusive quando os três ocorrem na
+   mesma competência. O CSV detalhado inclui a classificação de cada pagamento.

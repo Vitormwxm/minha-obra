@@ -10,6 +10,12 @@ figcaption p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6
 .chart-filters button:hover, .chart-filters button[aria-pressed="true"] { border-color: var(--green); }
 .chart-filters button[aria-pressed="true"] { background: var(--surface-tint); }
 .chart-filters span { width: 10px; height: 10px; border-radius: 2px; }
+.builder-filters, .series-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
+.builder-filters label { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: 12px; cursor: pointer; }
+.builder-filters input { width: 17px; height: 17px; margin: 0; accent-color: var(--green); }
+.series-legend { list-style: none; margin: 6px 0 0; padding: 0; font-size: 11px; }
+.series-legend li { display: flex; align-items: center; gap: 6px; }
+.series-legend span { width: 10px; height: 10px; flex: none; border-radius: 2px; }
 .caixa-series { background: var(--green); }
 .builder-series { background: repeating-linear-gradient(135deg, #d69b40 0 5px, #f3c779 5px 10px); }
 .chart-scroll { overflow-x: auto; }

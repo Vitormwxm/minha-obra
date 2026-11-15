@@ -18,8 +18,13 @@ public final class ConstructionTr {
     }
 
     public static Optional<BigDecimal> estimate(PaymentMonth month, List<Payment> payments, BigDecimal annualRate) {
-        if (month.caixaStatus() != Status.PAID || month.releasedCents() == null || month.releasedCents() == 0
-                || month.insuranceCents() == null || month.feesCents() == null) {
+        return estimate(month, payments, annualRate, month.releasedCents(), month.insuranceCents(), month.feesCents());
+    }
+
+    public static Optional<BigDecimal> estimate(PaymentMonth month, List<Payment> payments, BigDecimal annualRate,
+            Long releasedCents, Long insuranceCents, Long feesCents) {
+        if (month.caixaStatus() != Status.PAID || releasedCents == null || releasedCents == 0
+                || insuranceCents == null || feesCents == null) {
             return Optional.empty();
         }
 
@@ -31,8 +36,8 @@ public final class ConstructionTr {
 
         long netCharge = caixa.stream().mapToLong(payment -> payment.paidCents()
                 - (payment.lateChargeCents() == null ? 0 : payment.lateChargeCents())).sum()
-                - month.insuranceCents() - month.feesCents();
-        BigDecimal base = BigDecimal.valueOf(month.releasedCents());
+                - insuranceCents - feesCents;
+        BigDecimal base = BigDecimal.valueOf(releasedCents);
         BigDecimal interestRate = annualRate.divide(ANNUAL_PERCENT_TO_MONTHLY, PRECISION);
         BigDecimal nominalInterest = base.multiply(interestRate);
         long roundedNominalInterest = nominalInterest.setScale(0, RoundingMode.HALF_UP).longValueExact();

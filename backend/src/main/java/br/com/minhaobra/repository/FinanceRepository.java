@@ -2,6 +2,7 @@ package br.com.minhaobra.repository;
 
 import br.com.minhaobra.domain.Financing;
 import br.com.minhaobra.domain.PaymentMonth;
+import br.com.minhaobra.domain.PaymentMonth.BuilderCategory;
 import br.com.minhaobra.domain.PaymentMonth.Kind;
 import br.com.minhaobra.domain.PaymentMonth.Payment;
 import br.com.minhaobra.domain.PaymentMonth.Status;
@@ -104,15 +105,17 @@ public class FinanceRepository {
 
     public Map<YearMonth, List<Payment>> payments(UUID financing) {
         return jdbc.query("""
-                SELECT competence, kind, paid_on, paid_cents, late_charge_cents
+                SELECT competence, kind, paid_on, paid_cents, late_charge_cents, builder_category
                 FROM finance_payment WHERE financing_id = ? ORDER BY competence, position
                 """, r -> {
                     Map<YearMonth, List<Payment>> payments = new LinkedHashMap<>();
                     while (r.next()) {
                         YearMonth month = YearMonth.from(r.getObject("competence", LocalDate.class));
+                        String category = r.getString("builder_category");
                         payments.computeIfAbsent(month, ignored -> new ArrayList<>()).add(
                                 new Payment(Kind.valueOf(r.getString("kind")), r.getObject("paid_on", LocalDate.class),
-                                        r.getLong("paid_cents"), r.getObject("late_charge_cents", Long.class)));
+                                        r.getLong("paid_cents"), r.getObject("late_charge_cents", Long.class),
+                                        category == null ? null : BuilderCategory.valueOf(category)));
                     }
                     return payments;
                 }, financing);
@@ -141,11 +144,12 @@ public class FinanceRepository {
         for (int position = 0; position < payments.size(); position++) {
             Payment payment = payments.get(position);
             values.add(new Object[]{financing, competence, position, payment.kind().name(), payment.paidOn(),
-                    payment.paidCents(), payment.lateChargeCents()});
+                    payment.paidCents(), payment.lateChargeCents(),
+                    payment.builderCategory() == null ? null : payment.builderCategory().name()});
         }
         jdbc.batchUpdate("""
                 INSERT INTO finance_payment (financing_id, competence, position, kind, paid_on,
-                    paid_cents, late_charge_cents) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    paid_cents, late_charge_cents, builder_category) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """, values);
         return version;
     }

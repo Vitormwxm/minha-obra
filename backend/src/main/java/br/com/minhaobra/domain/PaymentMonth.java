@@ -20,6 +20,14 @@ public record PaymentMonth(YearMonth month, long version, LocalDate caixaDueDate
         CAIXA, CONSTRUTORA
     }
 
-    public record Payment(Kind kind, LocalDate paidOn, long paidCents, Long lateChargeCents) {
+    public enum BuilderCategory {
+        MONTHLY, INTERCALARY, DOWN_PAYMENT, UNCLASSIFIED
+    }
+
+    public record Payment(Kind kind, LocalDate paidOn, long paidCents, Long lateChargeCents,
+            BuilderCategory builderCategory) {
+        public Payment withBuilderCategory(BuilderCategory category) {
+            return new Payment(kind, paidOn, paidCents, lateChargeCents, category);
+        }
     }
 }

@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { AccountsApi } from './accounts-api';
 
 export type PaymentKind = 'CAIXA' | 'CONSTRUTORA';
+export type BuilderPaymentCategory = 'MONTHLY' | 'INTERCALARY' | 'DOWN_PAYMENT' | 'UNCLASSIFIED';
 export type PaymentStatus = 'OPEN' | 'PAID' | 'NO_PAYMENT';
 export type TrOrigin = 'OFFICIAL' | 'ESTIMATED' | 'MANUAL';
 
@@ -35,6 +36,7 @@ export interface Financing extends FinancingDraft {
 
 export interface Payment {
   kind: PaymentKind;
+  builderCategory?: BuilderPaymentCategory | null;
   paidOn: string;
   paidCents: number;
   lateChargeCents: number | null;
@@ -131,6 +133,10 @@ export class FinanceApi {
 
   officialTr(startDate: string, endDate: string): Promise<{ rate: string | null }> {
     return this.accounts.mutate('POST', '/finance/tr/official', { startDate, endDate });
+  }
+
+  estimateTr(month: string, releasedCents: number, insuranceCents: number, feesCents: number): Promise<{ rate: string | null }> {
+    return this.accounts.mutate('POST', '/finance/tr/estimate', { month, releasedCents, insuranceCents, feesCents });
   }
 
   project(assumptions: ProjectionAssumptions, startMonth: string, releasedCents: number): Promise<FinanceProjection> {

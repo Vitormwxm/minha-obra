@@ -4,6 +4,7 @@ import br.com.minhaobra.domain.Account;
 import br.com.minhaobra.domain.ConstructionTr;
 import br.com.minhaobra.domain.Financing;
 import br.com.minhaobra.domain.PaymentMonth;
+import br.com.minhaobra.domain.PaymentMonth.BuilderCategory;
 import br.com.minhaobra.domain.PaymentMonth.Kind;
 import br.com.minhaobra.domain.PaymentMonth.Payment;
 import br.com.minhaobra.domain.PaymentMonth.Status;
@@ -77,6 +78,20 @@ public class FinanceService {
         return new Finance.OfficialTrResult(rate.map(FinanceService::rateString).orElse(null));
     }
 
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public Finance.EstimateTrResult estimateTr(SessionPrincipal principal, Finance.EstimateTrInput input) {
+        Financing financing = requireFinancing(authenticatedAccount(principal).id());
+        YearMonth competence = parseMonth(input.month());
+        PaymentMonth month = finance.month(financing.id(), competence)
+                .orElseThrow(() -> new ApiException(404, "MONTH_NOT_FOUND", "Lançamento mensal não encontrado."));
+        long releasedCents = input.releasedCents().longValueExact();
+        checkReleased(releasedCents, financing.financedCents());
+        var payments = finance.payments(financing.id()).getOrDefault(competence, List.of());
+        var rate = ConstructionTr.estimate(month, payments, financing.annualNominalRate(),
+                releasedCents, input.insuranceCents().longValueExact(), input.feesCents().longValueExact());
+        return new Finance.EstimateTrResult(rate.map(FinanceService::rateString).orElse(null));
+    }
+
     @Transactional
     public Finance.Revision saveFinancing(SessionPrincipal principal, UUID key, Finance.FinancingInput input) {
         UUID owner = lockOwner(principal);
@@ -123,6 +138,9 @@ public class FinanceService {
             LocalDate builderDue = dueDate(input.builderDueDate(), month);
             LocalDate today = LocalDate.now(clock.withZone(FINANCE_ZONE));
             List<Payment> payments = input.payments().stream().map(payment -> payment(payment, today)).toList();
+            if (previous != null && payments.stream().anyMatch(p -> p.kind() == Kind.CONSTRUTORA && p.builderCategory() == null)) {
+                payments = preserveBuilderCategories(payments, finance.payments(financing.id()).getOrDefault(month, List.of()));
+            }
             checkStatus(input.caixaStatus(), payments, Kind.CAIXA);
             checkStatus(input.builderStatus(), payments, Kind.CONSTRUTORA);
             var settings = input.trSettings();
@@ -343,7 +361,32 @@ public class FinanceService {
         if (late != null && late > paid) {
             throw invalid("LATE_CHARGE_EXCEEDS_PAYMENT", "Os encargos por atraso devem estar incluídos no valor pago.");
         }
-        return new Payment(input.kind(), paidOn, paid, late);
+        if (input.kind() != Kind.CONSTRUTORA && input.builderCategory() != null) {
+            throw invalid("INVALID_PAYMENT_CATEGORY", "Somente pagamentos à construtora podem ter essa classificação.");
+        }
+        return new Payment(input.kind(), paidOn, paid, late, input.builderCategory());
+    }
+
+    private static List<Payment> preserveBuilderCategories(List<Payment> payments, List<Payment> previous) {
+        var oldBuilder = previous.stream().filter(p -> p.kind() == Kind.CONSTRUTORA).toList();
+        if (oldBuilder.stream().noneMatch(p -> p.builderCategory() != null && p.builderCategory() != BuilderCategory.UNCLASSIFIED)) {
+            return payments;
+        }
+        var builder = payments.stream().filter(p -> p.kind() == Kind.CONSTRUTORA).toList();
+        if (!builder.stream().map(p -> p.withBuilderCategory(null)).toList()
+                .equals(oldBuilder.stream().map(p -> p.withBuilderCategory(null)).toList())) {
+            throw invalid("PAYMENT_CATEGORY_UPDATE_REQUIRED", "Atualize o aplicativo antes de editar os pagamentos classificados da construtora.");
+        }
+        var result = new ArrayList<Payment>(payments.size());
+        var categories = oldBuilder.iterator();
+        for (Payment payment : payments) {
+            if (payment.kind() == Kind.CONSTRUTORA) {
+                var old = categories.next();
+                if (payment.builderCategory() == null) payment = payment.withBuilderCategory(old.builderCategory());
+            }
+            result.add(payment);
+        }
+        return result;
     }
 
     private static void checkStatus(Status status, List<Payment> payments, Kind kind) {
@@ -377,7 +420,7 @@ public class FinanceService {
 
     private static Finance.PaymentView paymentView(Payment payment) {
         return new Finance.PaymentView(payment.kind(), dateString(payment.paidOn()), payment.paidCents(),
-                payment.lateChargeCents());
+                payment.lateChargeCents(), payment.builderCategory());
     }
 
     private static ApiException invalid(String code, String message) {

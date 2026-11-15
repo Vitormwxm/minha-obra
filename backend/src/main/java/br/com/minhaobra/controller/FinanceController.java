@@ -39,6 +39,12 @@ public class FinanceController {
         return finance.officialTr(sessions.principal(auth), input);
     }
 
+    @PostMapping("/tr/estimate")
+    public ResponseEntity<Finance.EstimateTrResult> estimateTr(Authentication auth,
+            @Valid @RequestBody Finance.EstimateTrInput input) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(finance.estimateTr(sessions.principal(auth), input));
+    }
+
     @PutMapping("/financing")
     public Finance.Revision saveFinancing(Authentication auth, @RequestHeader("Idempotency-Key") UUID key,
             @Valid @RequestBody Finance.FinancingInput input) {
