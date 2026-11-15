@@ -1,6 +1,7 @@
 package br.com.minhaobra.app;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.graphics.Color;
 import android.net.Uri;
@@ -33,6 +34,7 @@ public final class MainActivity extends Activity {
     private static final String START_URL = "https://" + APP_HOST + "/assets/index.html";
     private WebView webView;
     private NotificationBridge notificationBridge;
+    private PaymentPdfBridge paymentPdfBridge;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,6 +88,7 @@ public final class MainActivity extends Activity {
                 (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0);
         webView.setWebViewClient(new LocalContentClient());
         notificationBridge = NotificationBridge.attach(this, webView);
+        paymentPdfBridge = PaymentPdfBridge.attach(this, webView, savedInstanceState);
         container.addView(webView, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         setContentView(container);
@@ -189,7 +192,14 @@ public final class MainActivity extends Activity {
     @Override
     protected void onSaveInstanceState(Bundle state) {
         webView.saveState(state);
+        if (paymentPdfBridge != null) paymentPdfBridge.saveState(state);
         super.onSaveInstanceState(state);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (paymentPdfBridge != null) paymentPdfBridge.onActivityResult(requestCode, resultCode, data);
     }
 
     @Override

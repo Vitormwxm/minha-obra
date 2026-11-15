@@ -54,8 +54,8 @@ android {
         applicationId 'br.com.minhaobra.app'
         minSdk 26
         targetSdk 35
-        versionCode 7
-        versionName '1.4.0'
+        versionCode 8
+        versionName '1.4.1'
         firebaseResources.each { key, value -> resValue 'string', key, value }
         buildConfigField 'String', 'APP_HOST', '"' + minhaObraHost + '"'
     }

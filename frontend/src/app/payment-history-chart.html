@@ -1,28 +1,58 @@
-@if (bars().length) {
+@if (paidMonths().length) {
   <figure aria-labelledby="payments-chart-title" aria-describedby="payments-chart-caption">
     <figcaption>
       <h3 id="payments-chart-title">Pagamentos registrados por mês</h3>
-      <p id="payments-chart-caption">Totais pagos à CAIXA e à construtora, por mês de vencimento. Deslize na horizontal para ver mais meses.</p>
-      <ul class="chart-legend" aria-label="Legenda">
-        <li><span class="caixa-series" aria-hidden="true"></span>CAIXA</li>
-        <li><span class="builder-series" aria-hidden="true"></span>Construtora</li>
-      </ul>
+      <p id="payments-chart-caption">Valores por mês de vencimento. Deslize na horizontal para ver mais meses.</p>
+      <div class="chart-toolbar">
+        <div class="chart-filters" role="group" aria-label="Pagamentos exibidos">
+          <button type="button" [attr.aria-pressed]="filter() === 'all'" (click)="filter.set('all')">Ambas</button>
+          <button type="button" [attr.aria-pressed]="filter() === 'caixa'" (click)="filter.set('caixa')">
+            <span class="caixa-series" aria-hidden="true"></span>CAIXA
+          </button>
+          <button type="button" [attr.aria-pressed]="filter() === 'builder'" (click)="filter.set('builder')">
+            <span class="builder-series" aria-hidden="true"></span>Construtora
+          </button>
+        </div>
+        <button class="secondary-button download-history" type="button" (click)="downloadHistory()" [disabled]="downloading()">
+          {{ downloading() ? 'Gerando PDF…' : 'Baixar PDF dos pagamentos' }}
+        </button>
+      </div>
+      @if (downloadError()) { <p class="inline-note" role="alert">{{ downloadError() }}</p> }
     </figcaption>
-    <div class="chart-scroll" role="region" aria-label="Histórico mensal de pagamentos" tabindex="0">
-      <ul class="chart-bars">
-        @for (bar of bars(); track bar.month) {
-          <li [attr.aria-label]="bar.accessibleMonth + ': CAIXA, ' + bar.caixaValue + '; construtora, ' + bar.builderValue + '; total, ' + bar.total">
-            <strong aria-hidden="true">{{ bar.total }}</strong>
-            <div class="chart-track" aria-hidden="true">
-              <span class="caixa-series" [style.height.%]="bar.caixa"></span>
-              <span class="builder-series" [style.height.%]="bar.builder"></span>
-            </div>
-            <time [attr.datetime]="bar.month" aria-hidden="true">{{ bar.label }}</time>
-          </li>
-        }
-      </ul>
-    </div>
+    @if (bars().length) {
+      <div class="chart-scroll" role="region" aria-label="Histórico mensal de pagamentos" tabindex="0">
+        <ul class="chart-bars">
+          @for (bar of bars(); track bar.month) {
+            <li [attr.aria-label]="bar.accessibleLabel">
+              <strong aria-hidden="true">{{ bar.total }}</strong>
+              <div class="chart-track" aria-hidden="true">
+                @if (bar.caixa) { <span class="caixa-series" [style.height.%]="bar.caixa"></span> }
+                @if (bar.builder) { <span class="builder-series" [style.height.%]="bar.builder"></span> }
+              </div>
+              <time [attr.datetime]="bar.month" aria-hidden="true">{{ bar.label }}</time>
+            </li>
+          }
+        </ul>
+      </div>
+    } @else {
+      <p class="inline-note" role="status">Nenhum pagamento registrado para a opção selecionada.</p>
+    }
   </figure>
+  @if (filter() === 'all' && totals().caixa + totals().builder > 0) {
+    <figure class="payment-split" aria-labelledby="payment-split-title">
+      <figcaption>
+        <h3 id="payment-split-title">Distribuição dos pagamentos</h3>
+        <p>Participação de cada um no total pago.</p>
+      </figcaption>
+      <div class="split-body">
+        <div class="pie" [style.--caixa-share]="caixaShare() + '%'" aria-hidden="true"></div>
+        <dl class="split-values">
+          <div><dt><span class="caixa-series" aria-hidden="true"></span>CAIXA</dt><dd>{{ amount(totals().caixa) }} <span>{{ percentage(caixaShare()) }}</span></dd></div>
+          <div><dt><span class="builder-series" aria-hidden="true"></span>Construtora</dt><dd>{{ amount(totals().builder) }} <span>{{ percentage(100 - caixaShare()) }}</span></dd></div>
+        </dl>
+      </div>
+    </figure>
+  }
 } @else {
   <p class="inline-note">Registre um pagamento na planilha para ver o histórico aqui.</p>
 }
