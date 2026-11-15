@@ -47,7 +47,8 @@
 .danger-button:hover:not(:disabled) { background: #77362e; }
 .manual-tag { color: #534286; background: #efeafa; }
 .tr-fields { margin-top: 12px; }
-.projection-total { flex: 0 1 220px; margin: 0; }
+.projection-total { flex: 1 1 300px; margin: 0; }
+.projection-base { display: block; margin-top: 3px; }
 
 @media (max-width: 760px) {
   .ledger thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }

@@ -80,13 +80,17 @@ estimativa fica vazia se faltarem dados ou a diferença for incompatível com
 o modelo. Os encargos efetivos seguem as cláusulas do contrato.
 [Cartilha da CAIXA sobre a fase de obras](https://www.caixa.gov.br/Downloads/habitacao-documentos-gerais/Cartilha_Juros_Fase_de_Obras.pdf).
 
-A projeção abrange os encargos da CAIXA do mês atual até o mês previsto da
-entrega. Ela distribui a diferença entre o saldo atual liberado e o valor
+A projeção abrange os encargos da CAIXA do primeiro mês escolhido até o mês
+previsto da entrega. O primeiro mês começa no mês corrente por padrão. O saldo
+liberado do cadastro é preenchido como saldo de abertura e pode ser alterado
+na simulação. Ela distribui a diferença entre o saldo de abertura e o valor
 financiado, com ajuste de centavos no último mês. O modelo considera a
 liberação no fim do mês e a correção da TR paga no encargo.
 A TR futura é uma hipótese editável. O usuário pode reaproveitar como
 hipótese o valor registrado no histórico. Pagamentos registrados reduzem
-o saldo a pagar projetado, e meses quitados entram com saldo a pagar zero.
+o saldo restante projetado, e meses quitados entram com saldo a pagar zero.
+O encargo projetado antes dos pagamentos segue o `calculator.js` e aparece
+em separado do saldo restante na tela e no PDF.
 Campos em branco podem deixar a projeção parcial. Se o valor de um pagamento
 destinado à evolução for incerto, o subtotal usa o maior abatimento possível.
 O simulador público usa o mesmo motor com dados informados na tela de acesso.
@@ -174,3 +178,19 @@ por digest. Deploy de produção é manual, somente de commit da `main` aprovado
 pela CI, sem recompilar na VPS e sem remover volumes. A publicação usa o
 domínio e o certificado da VPS. As credenciais FCM pertencem à etapa de
 notificações.
+
+## Plano de execução
+
+### Classificar pagamentos à construtora
+
+1. Acrescentar os tipos `Parcela mensal`, `Intercalada` e `Sinal / entrada`
+   aos pagamentos individuais da construtora. Manter o mês de vencimento e
+   permitir editar o tipo em lançamentos existentes. Preservar os valores e
+   identificar os pagamentos antigos que ainda precisam de classificação.
+2. No gráfico mensal, empilhar parcela e intercalada com cores e legenda
+   próprias. Permitir ocultar as intercaladas para comparar só as parcelas e
+   incluir o sinal para ver o desembolso completo. Manter o sinal oculto por
+   padrão no gráfico mensal.
+3. Incluir todos os pagamentos registrados nos totais, acumulados e no gráfico
+   de pizza. Identificar sinal, intercalada e parcela em separado no PDF do
+   histórico, inclusive quando os três ocorrerem na mesma competência.

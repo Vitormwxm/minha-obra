@@ -4,7 +4,7 @@ import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { apiMessage } from './accounts-api';
 import type { FinanceProjection } from './finance-api';
-import { parseBrl, parsePercent, validMonth } from './finance-input';
+import { monthsInclusive, parseBrl, parsePercent, validMonth } from './finance-input';
 import { ProjectionChart } from './projection-chart';
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -16,11 +16,6 @@ function currentMonth(): string {
   }).formatToParts(new Date());
   return parts.find((part) => part.type === 'year')!.value + '-' +
     parts.find((part) => part.type === 'month')!.value;
-}
-
-function monthNumber(month: string): number {
-  const [year, number] = month.split('-').map(Number);
-  return year! * 12 + number!;
 }
 
 @Component({
@@ -76,7 +71,7 @@ export class PublicProjection {
       this.showError('Informe o primeiro mês e o mês previsto de entrega.');
       return;
     }
-    const months = monthNumber(values.endMonth) - monthNumber(values.startMonth) + 1;
+    const months = monthsInclusive(values.startMonth, values.endMonth);
     if (months < 1 || months > 120) {
       this.showError('Informe um período de 1 a 120 meses.');
       return;

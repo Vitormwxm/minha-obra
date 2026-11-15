@@ -19,6 +19,11 @@ export function validMonth(value: string): boolean {
   return /^(?:19\d{2}|20\d{2}|2100)-(?:0[1-9]|1[0-2])$/.test(value);
 }
 
+export function monthsInclusive(start: string, end: string): number {
+  const number = (month: string) => Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7));
+  return number(end) - number(start) + 1;
+}
+
 export function validDate(value: string): boolean {
   if (!validMonth(value.slice(0, 7)) || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(value + 'T00:00:00Z');

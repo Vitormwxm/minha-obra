@@ -7,7 +7,7 @@ import {
   FinanceApi, FinanceSnapshot, FinancingDraft, LedgerMonth, MonthDraft, Payment, PaymentKind,
   PaymentStatus, ProjectionAssumptions, TrOrigin,
 } from './finance-api';
-import { parseBrl, parsePercent, validDate, validMonth } from './finance-input';
+import { monthsInclusive, parseBrl, parsePercent, validDate, validMonth } from './finance-input';
 import { ProjectionChart } from './projection-chart';
 import { PaymentHistoryChart } from './payment-history-chart';
 import type { ProjectionReport } from './projection-pdf';
@@ -83,7 +83,9 @@ export class Finance implements OnInit {
     builderStatus: this.forms.control<PaymentStatus>('OPEN'),
     released: '', insurance: '', fees: '', trPeriodStart: '', trPeriodEnd: '', manualTr: '', payments: this.payments,
   });
-  readonly projectionForm = this.forms.group({ monthlyTr: '', insurance: '', fees: '' });
+  readonly projectionForm = this.forms.group({
+    startMonth: this.today.slice(0, 7), openingBalance: '', monthlyTr: '', insurance: '', fees: '',
+  });
 
   ngOnInit(): void { void this.reload(); }
 
@@ -135,6 +137,8 @@ export class Finance implements OnInit {
   }
 
   openProjection(): void {
+    const financing = this.snapshot()?.financing;
+    if (financing) this.projectionForm.controls.openingBalance.setValue(this.inputAmount(financing.releasedCents));
     this.projection.set(null);
     this.show('projection');
   }
@@ -156,12 +160,21 @@ export class Finance implements OnInit {
     await this.runAction('Não foi possível calcular a projeção. Tente novamente.', async () => {
       this.projection.set(null);
       const values = this.projectionForm.getRawValue();
+      const months = monthsInclusive(values.startMonth, financing.expectedDeliveryDate.slice(0, 7));
+      if (!validMonth(values.startMonth) || months < 1 || months > 120) {
+        throw new InputProblem('projection-start', 'Escolha um primeiro mês que forme um período de 1 a 120 meses até a entrega.');
+      }
+      const releasedCents = this.requiredMoney(values.openingBalance, 'projection-balance', 'saldo liberado inicial', true);
+      if (releasedCents > financing.financedCents) {
+        throw new InputProblem('projection-balance', 'O saldo liberado inicial deve caber no financiamento.');
+      }
       const assumptions: ProjectionAssumptions = {
         monthlyTr: this.optionalPercent(values.monthlyTr, 'projection-tr'),
         insuranceCents: this.optionalMoney(values.insurance, 'projection-insurance', 'seguro mensal'),
         feesCents: this.optionalMoney(values.fees, 'projection-fees', 'taxas mensais'),
       };
-      this.projection.set({ ...await this.api.project(assumptions), assumptions, financing });
+      const result = await this.api.project(assumptions, values.startMonth, releasedCents);
+      this.projection.set({ ...result, assumptions, financing: { ...financing, releasedCents } });
       this.focus('projection-results');
     });
   }

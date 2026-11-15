@@ -18,23 +18,28 @@ public final class Projection {
     public record Input(
             @Pattern(regexp = "(?:0|[1-9][0-9]{0,2})(?:\\.[0-9]{1,6})?") @DecimalMax("100") String monthlyTr,
             @Digits(integer = 11, fraction = 0) @Min(0) @Max(MAX_CENTS) BigDecimal insuranceCents,
-            @Digits(integer = 11, fraction = 0) @Min(0) @Max(MAX_CENTS) BigDecimal feesCents) {
+            @Digits(integer = 11, fraction = 0) @Min(0) @Max(MAX_CENTS) BigDecimal feesCents,
+            @Pattern(regexp = "(?:19[0-9]{2}|20[0-9]{2}|2100)-(?:0[1-9]|1[0-2])") String startMonth,
+            @Digits(integer = 11, fraction = 0) @Min(0) @Max(MAX_CENTS) BigDecimal releasedCents) {
     }
 
     public record Row(String month, long releasedCents, long releaseCents, boolean settled,
             Long trCents, Long interestCents, Long insuranceCents, Long feesCents, long knownSubtotalCents,
-            Long totalCents, Long caixaPaidCents, boolean paymentAllocationKnown) {
+            Long totalCents, Long caixaPaidCents, boolean paymentAllocationKnown,
+            long baseBalanceCents, long grossKnownSubtotalCents, Long grossCents) {
         private static Row from(ProjectionCalculator.Row row) {
             return new Row(row.month().toString(), row.releasedCents(), row.releaseCents(), row.settled(),
                     row.trCents(), row.interestCents(), row.insuranceCents(), row.feesCents(), row.knownSubtotalCents(),
-                    row.totalCents(), row.caixaPaidCents(), row.paymentAllocationKnown());
+                    row.totalCents(), row.caixaPaidCents(), row.paymentAllocationKnown(),
+                    row.baseBalanceCents(), row.grossKnownSubtotalCents(), row.grossCents());
         }
     }
 
-    public record Result(List<Row> rows, long knownSubtotalCents, Long totalCents) {
+    public record Result(List<Row> rows, long knownSubtotalCents, Long totalCents,
+            long grossKnownSubtotalCents, Long grossCents) {
         public static Result from(ProjectionCalculator.Result result) {
             return new Result(result.rows().stream().map(Row::from).toList(), result.knownSubtotalCents(),
-                    result.totalCents());
+                    result.totalCents(), result.grossKnownSubtotalCents(), result.grossCents());
         }
     }
 }
