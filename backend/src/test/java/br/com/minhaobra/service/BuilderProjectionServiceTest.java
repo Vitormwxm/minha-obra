@@ -25,8 +25,8 @@ class BuilderProjectionServiceTest {
     void usesLocalMonthAndOnlyTheOwnersBuilderPayments() {
         var paid = new Finance.MonthView("2026-11", 1, "2026-11-15", "2026-11-12",
                 Status.PAID, Status.OPEN, null, null, null,
-                List.of(new Finance.PaymentView(Kind.CAIXA, "2026-11-10", 900, null),
-                        new Finance.PaymentView(Kind.CONSTRUTORA, "2026-11-20", 300, 50L)),
+                List.of(new Finance.PaymentView(Kind.CAIXA, "2026-11-10", 900, null, null),
+                        new Finance.PaymentView(Kind.CONSTRUTORA, "2026-11-20", 300, 50L, null)),
                 false, 900L, 300L, 1_200L, 900, 300, 1_200, null, null, null, null, null);
         when(finance.ledger(principal)).thenReturn(ledger(List.of(paid)));
 

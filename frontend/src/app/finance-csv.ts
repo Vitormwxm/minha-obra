@@ -1,4 +1,5 @@
 import type { FinanceSnapshot } from './finance-api';
+import { builderPaymentLabels } from './builder-payment';
 
 type CsvCell = string | number | null;
 
@@ -34,10 +35,11 @@ export function downloadFinanceCsv(ledger: FinanceSnapshot, kind: 'summary' | 'p
       reais(row.monthlyVariationCents),
     ]),
   ] : [
-    ['Competência', 'Tipo', 'Data do pagamento', 'Valor pago (R$)', 'Juros e multa incluídos (R$)'],
+    ['Competência', 'Tipo', 'Data do pagamento', 'Valor pago (R$)', 'Juros e multa incluídos (R$)', 'Classificação da construtora'],
     ...ledger.months.flatMap((row) => row.payments.map((payment) => [
       row.month, payment.kind === 'CAIXA' ? 'CAIXA' : 'Construtora', payment.paidOn,
       reais(payment.paidCents), reais(payment.lateChargeCents),
+      payment.kind === 'CONSTRUTORA' ? builderPaymentLabels[payment.builderCategory ?? 'UNCLASSIFIED'] : '',
     ])),
   ];
 

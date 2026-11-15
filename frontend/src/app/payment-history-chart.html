@@ -17,6 +17,19 @@
           {{ downloading() ? 'Gerando PDF…' : 'Baixar PDF dos pagamentos' }}
         </button>
       </div>
+      @if (filter() !== 'caixa' && totals().builder > 0) {
+        <div class="builder-filters" role="group" aria-label="Tipos de pagamento da construtora no gráfico mensal">
+          <label><input #intercalary type="checkbox" [checked]="showIntercalary()" (change)="showIntercalary.set(intercalary.checked)" /> Mostrar intercaladas</label>
+          <label><input #downPayment type="checkbox" [checked]="showDownPayment()" (change)="showDownPayment.set(downPayment.checked)" /> Incluir sinal</label>
+        </div>
+      }
+      @if (visibleSeries().length) {
+        <ul class="series-legend" aria-label="Legenda das barras">
+          @for (series of visibleSeries(); track series.key) {
+            <li><span [style.background-color]="series.color" aria-hidden="true"></span>{{ series.label }}</li>
+          }
+        </ul>
+      }
       @if (downloadError()) { <p class="inline-note" role="alert">{{ downloadError() }}</p> }
     </figcaption>
     @if (bars().length) {
@@ -26,8 +39,9 @@
             <li [attr.aria-label]="bar.accessibleLabel">
               <strong aria-hidden="true">{{ bar.total }}</strong>
               <div class="chart-track" aria-hidden="true">
-                @if (bar.caixa) { <span class="caixa-series" [style.height.%]="bar.caixa"></span> }
-                @if (bar.builder) { <span class="builder-series" [style.height.%]="bar.builder"></span> }
+                @for (segment of bar.segments; track segment.key) {
+                  <span [style.background-color]="segment.color" [style.height.%]="segment.height"></span>
+                }
               </div>
               <time [attr.datetime]="bar.month" aria-hidden="true">{{ bar.label }}</time>
             </li>

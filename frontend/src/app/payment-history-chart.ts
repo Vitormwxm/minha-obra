@@ -1,4 +1,5 @@
 import { Component, computed, input, signal } from '@angular/core';
+import { builderPaymentBreakdown, paymentHistorySeries } from './builder-payment';
 import type { LedgerMonth } from './finance-api';
 
 type PaymentFilter = 'all' | 'caixa' | 'builder';
@@ -14,6 +15,8 @@ const monthLabel = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'nume
 export class PaymentHistoryChart {
   readonly months = input.required<readonly LedgerMonth[]>();
   readonly filter = signal<PaymentFilter>('all');
+  readonly showIntercalary = signal(true);
+  readonly showDownPayment = signal(false);
   readonly paidMonths = computed(() => this.months().filter(month => month.payments.length > 0));
   readonly totals = computed(() => this.paidMonths().reduce(
     (totals, month) => ({
@@ -31,32 +34,35 @@ export class PaymentHistoryChart {
   });
   readonly percentage = (value: number) => value.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '%';
 
-  readonly bars = computed(() => {
-    const showCaixa = this.filter() !== 'builder';
-    const showBuilder = this.filter() !== 'caixa';
-    const months = this.paidMonths().map(month => ({
-      month: month.month,
-      caixa: showCaixa ? month.caixaPaidCents : null,
-      builder: showBuilder ? month.builderPaidCents : null,
-    })).filter(month => month.caixa !== null || month.builder !== null);
-    const max = months.reduce((largest, month) => Math.max(largest,
-      (month.caixa ?? 0) + (month.builder ?? 0)), 1);
+  readonly paidBreakdowns = computed(() => this.paidMonths().map(month => ({
+    month: month.month,
+    amounts: { CAIXA: month.caixaPaidCents ?? 0, ...builderPaymentBreakdown(month.payments) },
+  })));
 
-    return months.map(month => {
-      const caixa = month.caixa ?? 0;
-      const builder = month.builder ?? 0;
-      const total = currency.format((caixa + builder) / 100);
-      const details = [];
-      if (month.caixa !== null) details.push('CAIXA, ' + currency.format(caixa / 100));
-      if (month.builder !== null) details.push('construtora, ' + currency.format(builder / 100));
-      if (details.length > 1) details.push('total, ' + total);
+  readonly visibleSeries = computed(() => paymentHistorySeries.filter(({ key }) =>
+    (key === 'CAIXA' ? this.filter() !== 'builder' : this.filter() !== 'caixa')
+      && (key !== 'INTERCALARY' || this.showIntercalary())
+      && (key !== 'DOWN_PAYMENT' || this.showDownPayment())
+      && this.paidBreakdowns().some(row => row.amounts[key] > 0),
+  ));
+
+  readonly bars = computed(() => {
+    const series = this.visibleSeries();
+    const months = this.paidBreakdowns().map(row => {
+      const segments = series.map(item => ({ ...item, cents: row.amounts[item.key] })).filter(item => item.cents > 0);
+      return { month: row.month, segments, total: segments.reduce((sum, item) => sum + item.cents, 0) };
+    }).filter(row => row.total > 0);
+    const max = months.reduce((largest, row) => Math.max(largest, row.total), 1);
+
+    return months.map(({ month, segments, total }) => {
+      const details = segments.map(item => item.label + ', ' + this.amount(item.cents));
+      if (details.length > 1) details.push('total, ' + this.amount(total));
       return {
-        month: month.month,
-        label: month.month.slice(5) + '/' + month.month.slice(0, 4),
-        accessibleLabel: monthLabel.format(new Date(month.month + '-01T00:00:00Z')) + ': ' + details.join('; '),
-        total,
-        caixa: caixa * 100 / max,
-        builder: builder * 100 / max,
+        month,
+        label: month.slice(5) + '/' + month.slice(0, 4),
+        accessibleLabel: monthLabel.format(new Date(month + '-01T00:00:00Z')) + ': ' + details.join('; '),
+        total: this.amount(total),
+        segments: segments.map(item => ({ ...item, height: item.cents * 100 / max })),
       };
     });
   });

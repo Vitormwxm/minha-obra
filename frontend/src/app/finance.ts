@@ -3,8 +3,9 @@ import { Component, computed, DestroyRef, ElementRef, inject, OnInit, output, si
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { AccountsApi, apiMessage } from './accounts-api';
 import { BuilderProjection } from './builder-projection';
+import { builderPaymentLabels } from './builder-payment';
 import {
-  FinanceApi, FinanceSnapshot, FinancingDraft, LedgerMonth, MonthDraft, Payment, PaymentKind,
+  BuilderPaymentCategory, FinanceApi, FinanceSnapshot, FinancingDraft, LedgerMonth, MonthDraft, Payment, PaymentKind,
   PaymentStatus, ProjectionAssumptions, TrOrigin,
 } from './finance-api';
 import { monthsInclusive, parseBrl, parsePercent, validDate, validMonth } from './finance-input';
@@ -67,6 +68,7 @@ export class Finance implements OnInit {
   readonly paidCaixaMonths = computed(() => this.snapshot()?.months.filter(month => month.caixaStatus === 'PAID') ?? []);
   readonly minTrDate = MIN_TR_DATE;
   readonly paymentLimit = 100;
+  readonly builderPaymentLabels = builderPaymentLabels;
   readonly statuses: Record<PaymentStatus, string> = {
     OPEN: 'Em aberto', PAID: 'Quitado', NO_PAYMENT: 'Sem pagamento',
   };
@@ -293,7 +295,8 @@ export class Finance implements OnInit {
         if (lateChargeCents !== null && lateChargeCents > paidCents) {
           throw new InputProblem('payment-late-' + index, 'Juros e multa já incluídos devem caber no valor pago.');
         }
-        return { kind: payment.kind, paidOn, paidCents, lateChargeCents };
+        const details = { kind: payment.kind, paidOn, paidCents, lateChargeCents };
+        return payment.kind === 'CONSTRUTORA' ? { ...details, builderCategory: payment.builderCategory } : details;
       });
       this.checkStatus(values.caixaStatus, 'CAIXA', payments, 'caixa-status');
       this.checkStatus(values.builderStatus, 'CONSTRUTORA', payments, 'builder-status');
@@ -338,6 +341,8 @@ export class Finance implements OnInit {
   private paymentForm(payment?: Payment, kind: PaymentKind = 'CAIXA') {
     return this.forms.group({
       kind: this.forms.control<PaymentKind>(payment?.kind ?? kind), paidOn: payment?.paidOn ?? this.today,
+      builderCategory: this.forms.control<BuilderPaymentCategory>(
+        payment?.kind === 'CONSTRUTORA' ? payment.builderCategory ?? 'UNCLASSIFIED' : 'MONTHLY'),
       paid: this.inputAmount(payment?.paidCents), late: this.inputAmount(payment?.lateChargeCents),
     });
   }

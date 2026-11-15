@@ -107,6 +107,41 @@ class FinanceIT {
     }
 
     @Test
+    void classifiesBuilderPaymentsWithoutChangingTotalsAndProtectsThemFromOlderClients() throws Exception {
+        Browser owner = login("category_owner", "USER");
+        assertStatus(200, owner.save(FINANCING, financing(null)));
+        String path = month("2025-03");
+        var caixa = payment("CAIXA", "2025-03-05", 50_000, 0L);
+        var monthly = payment("CONSTRUTORA", "2025-03-05", 80_000, 0L);
+        var intercalary = payment("CONSTRUTORA", "2025-03-06", 500_000, 0L);
+        var signal = payment("CONSTRUTORA", "2025-03-07", 1_500_000, 0L);
+        long version = revision(owner.save(path, row(null, "PAID", "PAID", caixa, monthly, intercalary, signal)));
+        assertTrue(owner.ledger().get("months").get(0).get("payments").get(3).path("builderCategory").isMissingNode());
+        monthly.put("builderCategory", "MONTHLY");
+        intercalary.put("builderCategory", "INTERCALARY");
+        signal.put("builderCategory", "DOWN_PAYMENT");
+        version = revision(owner.save(path, row(version, "PAID", "PAID", caixa, monthly, intercalary, signal)));
+        var month = owner.ledger().get("months").get(0);
+        assertEquals(2_080_000, month.get("builderPaidCents").asLong());
+        assertEquals(2_130_000, month.get("monthlyTotalCents").asLong());
+        assertEquals(2_080_000, month.get("builderAccumulatedCents").asLong());
+
+        caixa.put("builderCategory", "DOWN_PAYMENT");
+        assertError(400, "INVALID_PAYMENT_CATEGORY",
+                owner.save(path, row(version, "PAID", "PAID", caixa, monthly, intercalary, signal)));
+        caixa.remove("builderCategory");
+        monthly.remove("builderCategory");
+        intercalary.remove("builderCategory");
+        signal.remove("builderCategory");
+        version = revision(owner.save(path, row(version, "PAID", "PAID", caixa, monthly, intercalary, signal)));
+        assertEquals("DOWN_PAYMENT", owner.ledger().get("months").get(0).get("payments").get(3).get("builderCategory").asString());
+        signal.put("paidCents", 1_499_900);
+        assertError(400, "PAYMENT_CATEGORY_UPDATE_REQUIRED",
+                owner.save(path, row(version, "PAID", "PAID", caixa, monthly, intercalary, signal)));
+        assertEquals(2_080_000, owner.ledger().get("months").get(0).get("builderPaidCents").asLong());
+    }
+
+    @Test
     void matchesOriginalSimulatorWithCustomOpeningMonthAndDistinguishesPaidAmounts() throws Exception {
         Browser owner = login("projection_owner", "USER");
         var financing = financing(null);

@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { builderPaymentBreakdown, paymentHistorySeries } from './builder-payment';
 import type { LedgerMonth } from './finance-api';
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -14,8 +15,9 @@ export function createPaymentHistoryPdf(rows: readonly LedgerMonth[], totals: { 
   const rowHeight = 24;
   const maximum = rows.reduce((max, row) => Math.max(max, (row.caixaPaidCents ?? 0) + (row.builderPaidCents ?? 0)), 1);
   const chartLeft = margin + 75;
-  const chartWidth = 244;
+  const chartWidth = 160;
   const right = width - margin - 10;
+  const seriesCell = (index: number) => right - 84 * (paymentHistorySeries.length - index);
   doc.setProperties({ title: 'Histórico de pagamentos da obra', subject: 'Pagamentos registrados à CAIXA e à construtora', author: 'Minha Obra' });
 
   function text(value: string, x: number, y: number, size: number, bold = false, align: 'left' | 'right' = 'left') {
@@ -84,8 +86,7 @@ export function createPaymentHistoryPdf(rows: readonly LedgerMonth[], totals: { 
     doc.rect(margin, tableTop, contentWidth, rowHeight, 'F');
     text('Mês', margin + 10, tableTop + 16, 9, true);
     text('Gráfico mensal', chartLeft, tableTop + 16, 9, true);
-    text('CAIXA', right - 232, tableTop + 16, 9, true, 'right');
-    text('Construtora', right - 116, tableTop + 16, 9, true, 'right');
+    paymentHistorySeries.forEach((item, index) => text(item.label, seriesCell(index), tableTop + 16, 8, true, 'right'));
     text('Total registrado', right, tableTop + 16, 9, true, 'right');
   }
 
@@ -104,22 +105,24 @@ export function createPaymentHistoryPdf(rows: readonly LedgerMonth[], totals: { 
       doc.setFillColor('#f5f6f4');
       doc.rect(margin, y, contentWidth, rowHeight, 'F');
     }
-    const caixaWidth = chartWidth * (row.caixaPaidCents ?? 0) / maximum;
-    const builderWidth = chartWidth * (row.builderPaidCents ?? 0) / maximum;
+    const amounts = { CAIXA: row.caixaPaidCents, ...builderPaymentBreakdown(row.payments) };
     doc.setFillColor('#e8ece9');
     doc.rect(chartLeft, y + 8, chartWidth, 8, 'F');
-    if (caixaWidth > 0) {
-      doc.setFillColor(caixaColor);
-      doc.rect(chartLeft, y + 8, caixaWidth, 8, 'F');
-    }
-    if (builderWidth > 0) {
-      doc.setFillColor(builderColor);
-      doc.rect(chartLeft + caixaWidth, y + 8, builderWidth, 8, 'F');
+    let barX = chartLeft;
+    for (const { key, color } of paymentHistorySeries) {
+      const size = chartWidth * (amounts[key] ?? 0) / maximum;
+      if (size > 0) {
+        doc.setFillColor(color);
+        doc.rect(barX, y + 8, size, 8, 'F');
+        barX += size;
+      }
     }
     doc.setTextColor('#242726');
     text(row.month.slice(5) + '/' + row.month.slice(0, 4), margin + 10, y + 16, 9);
-    text(money(row.caixaPaidCents), right - 232, y + 16, 9, false, 'right');
-    text(money(row.builderPaidCents), right - 116, y + 16, 9, false, 'right');
+    paymentHistorySeries.forEach(({ key }, index) => {
+      const cents = key === 'CAIXA' ? amounts.CAIXA : amounts[key] || null;
+      text(money(cents), seriesCell(index), y + 16, 8.5, false, 'right');
+    });
     text(money((row.caixaPaidCents ?? 0) + (row.builderPaidCents ?? 0)), right, y + 16, 9, true, 'right');
     y += rowHeight;
   });
@@ -130,13 +133,13 @@ export function createPaymentHistoryPdf(rows: readonly LedgerMonth[], totals: { 
     doc.setDrawColor('#dce4dd');
     doc.line(margin, height - 49, width - margin, height - 49);
     doc.setTextColor('#485c53');
-    doc.setFillColor(caixaColor);
-    doc.rect(margin, height - 32, 8, 8, 'F');
-    text('CAIXA', margin + 13, height - 25, 8);
-    doc.setFillColor(builderColor);
-    doc.rect(margin + 60, height - 32, 8, 8, 'F');
-    text('Construtora', margin + 73, height - 25, 8);
-    text('- indica ausência de valor registrado', margin + 160, height - 25, 8);
+    paymentHistorySeries.forEach(({ color, label }, index) => {
+      const x = margin + index * 88;
+      doc.setFillColor(color);
+      doc.rect(x, height - 32, 8, 8, 'F');
+      text(label, x + 12, height - 25, 8);
+    });
+    text('- indica ausência de valor registrado', margin + 455, height - 25, 8);
     text(page + ' / ' + pages, width - margin, height - 25, 8, false, 'right');
   }
   return doc;

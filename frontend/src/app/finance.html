@@ -187,6 +187,16 @@
               <legend>Pagamento {{ index + 1 }}</legend>
               <div class="payment-fields">
                 <div class="field"><label [for]="'payment-kind-' + index">Pago a</label><select [id]="'payment-kind-' + index" formControlName="kind"><option value="CAIXA">CAIXA</option><option value="CONSTRUTORA">Construtora</option></select></div>
+                @if (payment.controls.kind.value === 'CONSTRUTORA') {
+                  <div class="field"><label [for]="'builder-category-' + index">Tipo de pagamento</label>
+                    <select [id]="'builder-category-' + index" formControlName="builderCategory">
+                      <option value="MONTHLY">{{ builderPaymentLabels.MONTHLY }}</option>
+                      <option value="INTERCALARY">{{ builderPaymentLabels.INTERCALARY }}</option>
+                      <option value="DOWN_PAYMENT">{{ builderPaymentLabels.DOWN_PAYMENT }}</option>
+                      <option value="UNCLASSIFIED">{{ builderPaymentLabels.UNCLASSIFIED }}</option>
+                    </select>
+                  </div>
+                }
                 <div class="field"><label [for]="'payment-date-' + index">Data do pagamento</label><input [id]="'payment-date-' + index" type="date" formControlName="paidOn" required min="1900-01-01" [max]="today" placeholder="AAAA-MM-DD" [attr.aria-invalid]="invalidField() === 'payment-date-' + index" /></div>
                 <div class="field"><label [for]="'payment-paid-' + index">Valor pago</label><input [id]="'payment-paid-' + index" formControlName="paid" required inputmode="decimal" maxlength="22" placeholder="R$ 0,00" [attr.aria-invalid]="invalidField() === 'payment-paid-' + index" /></div>
                 <div class="field"><label [for]="'payment-late-' + index">Juros e multa <span>(opcional)</span></label><input [id]="'payment-late-' + index" formControlName="late" inputmode="decimal" maxlength="22" placeholder="R$ 0,00" [attr.aria-invalid]="invalidField() === 'payment-late-' + index" /></div>

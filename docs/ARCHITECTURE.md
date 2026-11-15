@@ -184,16 +184,15 @@ notificações.
 
 ## Plano de execução
 
-### Classificar pagamentos à construtora
+### Classificação dos pagamentos à construtora
 
-1. Acrescentar os tipos `Parcela mensal`, `Intercalada` e `Sinal / entrada`
-   aos pagamentos individuais da construtora. Manter o mês de vencimento e
-   permitir editar o tipo em lançamentos existentes. Preservar os valores e
-   identificar os pagamentos antigos que ainda precisam de classificação.
-2. No gráfico mensal, empilhar parcela e intercalada com cores e legenda
-   próprias. Permitir ocultar as intercaladas para comparar só as parcelas e
-   incluir o sinal para ver o desembolso completo. Manter o sinal oculto por
-   padrão no gráfico mensal.
-3. Incluir todos os pagamentos registrados nos totais, acumulados e no gráfico
-   de pizza. Identificar sinal, intercalada e parcela em separado no PDF do
-   histórico, inclusive quando os três ocorrerem na mesma competência.
+1. Os tipos `Parcela mensal`, `Intercalada` e `Sinal / entrada` se aplicam
+   aos pagamentos individuais da construtora. É possível mudar o tipo em
+   lançamentos existentes na mesma competência. Os pagamentos antigos
+   aparecem como `Sem classificação` até serem atualizados.
+2. O gráfico mensal empilha parcela e intercalada com cores e legenda
+   próprias. O usuário pode ocultar intercaladas e incluir o sinal. O sinal
+   começa oculto no gráfico mensal.
+3. Totais, acumulados e gráfico de pizza incluem todos os valores registrados.
+   O PDF do histórico discrimina os tipos, inclusive quando os três ocorrem na
+   mesma competência. O CSV detalhado inclui a classificação de cada pagamento.
