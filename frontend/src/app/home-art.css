@@ -3,18 +3,18 @@
   position: relative;
   min-height: 210px;
   margin-top: 24px;
-  border-bottom: 1px solid #a7c4f477;
-  background-image: linear-gradient(#a7c4f421 1px, transparent 1px), linear-gradient(90deg, #a7c4f421 1px, transparent 1px);
+  border-bottom: 1px solid #a0cdb877;
+  background-image: linear-gradient(#a0cdb821 1px, transparent 1px), linear-gradient(90deg, #a0cdb821 1px, transparent 1px);
   background-size: 24px 24px;
 }
 .facade { position: absolute; inset: 8px 0 0; display: flex; align-items: end; justify-content: center; gap: 4px; }
 .wing {
   width: 24%;
-  border: 1px solid #a7c4f4;
+  border: 1px solid #a0cdb8;
   border-bottom: 0;
-  background-color: #163261;
-  background-image: repeating-linear-gradient(to top, transparent 0 21px, #a7c4f488 21px 22px),
-    repeating-linear-gradient(to right, transparent 0 24px, #a7c4f466 24px 25px);
+  background-color: #214a40;
+  background-image: repeating-linear-gradient(to top, transparent 0 21px, #a0cdb888 21px 22px),
+    repeating-linear-gradient(to right, transparent 0 24px, #a0cdb866 24px 25px);
 }
 .annex { height: 61%; }
 .tower { height: 90%; width: 32%; }
