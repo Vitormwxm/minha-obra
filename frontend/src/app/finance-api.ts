@@ -95,12 +95,17 @@ export interface ProjectionRow {
   caixaPaidCents: number | null;
   knownSubtotalCents: number;
   totalCents: number | null;
+  baseBalanceCents: number;
+  grossKnownSubtotalCents: number;
+  grossCents: number | null;
 }
 
 export interface FinanceProjection {
   rows: ProjectionRow[];
   knownSubtotalCents: number;
   totalCents: number | null;
+  grossKnownSubtotalCents: number;
+  grossCents: number | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -128,7 +133,7 @@ export class FinanceApi {
     return this.accounts.mutate('POST', '/finance/tr/official', { startDate, endDate });
   }
 
-  project(assumptions: ProjectionAssumptions): Promise<FinanceProjection> {
-    return this.accounts.mutate('POST', '/finance/projection', assumptions);
+  project(assumptions: ProjectionAssumptions, startMonth: string, releasedCents: number): Promise<FinanceProjection> {
+    return this.accounts.mutate('POST', '/finance/projection', { ...assumptions, startMonth, releasedCents });
   }
 }

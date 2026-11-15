@@ -12,7 +12,7 @@
       }
       @case ('projection') {
         <h1 id="finance-title" tabindex="-1">Simular evolução de obra</h1>
-        <p>Estime quanto ainda pode pagar à CAIXA, do mês atual até a entrega prevista.</p>
+        <p>Estime os encargos da CAIXA até a entrega e veja o saldo a pagar após os lançamentos.</p>
       }
       @case ('builder-projection') {
         <h1 id="finance-title" tabindex="-1">Simular parcelas da construtora</h1>
@@ -283,8 +283,10 @@
       </dl>
       <fieldset class="form-fields" [disabled]="busy()">
         <legend class="form-legend">Hipóteses mensais</legend>
-        <p id="projection-help" class="muted form-help">Preencha as estimativas que conhece. Campo em branco mantém o valor desconhecido. Informe zero quando essa for a sua hipótese.</p>
+        <p id="projection-help" class="muted form-help">Use o saldo que já estava liberado antes do primeiro mês simulado. Preencha TR, seguro e taxas para obter o total completo. Informe zero quando essa for a sua hipótese.</p>
         <div class="form-grid three-fields tr-fields">
+          <div class="field"><label for="projection-start">Primeiro mês</label><input id="projection-start" formControlName="startMonth" type="month" min="1900-01" [max]="financing.expectedDeliveryDate.slice(0, 7)" aria-describedby="projection-help" [attr.aria-invalid]="invalidField() === 'projection-start'" /></div>
+          <div class="field"><label for="projection-balance">Saldo liberado inicial</label><input id="projection-balance" formControlName="openingBalance" inputmode="decimal" maxlength="22" aria-describedby="projection-help" [attr.aria-invalid]="invalidField() === 'projection-balance'" /></div>
           <div class="field"><label for="projection-tr">TR projetada (% ao mês)</label><input id="projection-tr" formControlName="monthlyTr" inputmode="decimal" maxlength="10" placeholder="Ex.: 0,15" aria-describedby="projection-help" [attr.aria-invalid]="invalidField() === 'projection-tr'" /></div>
           <div class="field"><label for="projection-insurance">Seguro mensal</label><input id="projection-insurance" formControlName="insurance" inputmode="decimal" maxlength="22" placeholder="R$ 0,00" aria-describedby="projection-help" [attr.aria-invalid]="invalidField() === 'projection-insurance'" /></div>
           <div class="field"><label for="projection-fees">Taxas mensais</label><input id="projection-fees" formControlName="fees" inputmode="decimal" maxlength="22" placeholder="R$ 0,00" aria-describedby="projection-help" [attr.aria-invalid]="invalidField() === 'projection-fees'" /></div>
@@ -306,6 +308,10 @@
           <div><span class="eyebrow">SIMULAÇÃO</span><h2 id="projection-results" tabindex="-1">Projeção até a entrega</h2></div>
           <dl class="financing-facts projection-total">
             <div>
+              <dt>Total projetado antes dos pagamentos</dt><dd>{{ amount(result.grossCents) }}</dd>
+              @if (result.grossCents === null) { <dt>Subtotal projetado conhecido</dt><dd>{{ amount(result.grossKnownSubtotalCents) }}</dd> }
+            </div>
+            <div>
               <dt>Total restante estimado</dt><dd>{{ amount(result.totalCents) }}</dd>
               @if (result.totalCents === null) { <dt>Subtotal mínimo estimado</dt><dd>{{ amount(result.knownSubtotalCents) }}</dd> }
             </div>
@@ -323,11 +329,12 @@
                 <tr role="row">
                   <th scope="col" role="columnheader">Mês</th>
                   <th scope="col" role="columnheader">Liberação no mês</th>
-                  <th scope="col" role="columnheader">Saldo liberado</th>
+                  <th scope="col" role="columnheader">Saldo liberado no fechamento</th>
                   <th scope="col" role="columnheader">Juros</th>
                   <th scope="col" role="columnheader">TR</th>
                   <th scope="col" role="columnheader">Seguro</th>
                   <th scope="col" role="columnheader">Taxas</th>
+                  <th scope="col" role="columnheader">Encargo projetado</th>
                   <th scope="col" role="columnheader">Pago à CAIXA</th>
                   <th scope="col" role="columnheader">Restante estimado</th>
                 </tr>
@@ -341,11 +348,15 @@
                       @else if (!row.paymentAllocationKnown) { <span class="status-tag pending">Confira os encargos de atraso</span> }
                     </th>
                     <td role="cell"><span class="mobile-label" aria-hidden="true">Liberação no mês</span>{{ amount(row.releaseCents) }}</td>
-                    <td role="cell"><span class="mobile-label" aria-hidden="true">Saldo liberado</span>{{ amount(row.releasedCents) }}</td>
+                    <td role="cell"><span class="mobile-label" aria-hidden="true">Saldo liberado no fechamento</span>{{ amount(row.releasedCents) }}<small class="muted projection-base">Base {{ amount(row.baseBalanceCents) }}</small></td>
                     <td role="cell"><span class="mobile-label" aria-hidden="true">Juros</span>{{ amount(row.interestCents) }}</td>
                     <td role="cell"><span class="mobile-label" aria-hidden="true">TR</span>{{ amount(row.trCents) }}</td>
                     <td role="cell"><span class="mobile-label" aria-hidden="true">Seguro</span>{{ amount(row.insuranceCents) }}</td>
                     <td role="cell"><span class="mobile-label" aria-hidden="true">Taxas</span>{{ amount(row.feesCents) }}</td>
+                    <td role="cell"><span class="mobile-label" aria-hidden="true">Encargo projetado</span>
+                      {{ amount(row.grossCents) }}
+                      @if (row.grossCents === null) { <span class="muted">Mínimo {{ amount(row.grossKnownSubtotalCents) }}</span> }
+                    </td>
                     <td role="cell"><span class="mobile-label" aria-hidden="true">Pago à CAIXA</span>{{ amount(row.caixaPaidCents) }}</td>
                     <td role="cell" class="ledger-payer">
                       <span class="mobile-label" aria-hidden="true">Restante estimado</span>

@@ -16,10 +16,12 @@ const columns = [
   { label: 'Correção TR', width: 65 },
   { label: 'Seguro', width: 65 },
   { label: 'Taxas', width: 61 },
+  { label: 'Encargo previsto', width: 88 },
   { label: 'Pago à CAIXA', width: 85 },
   { label: 'Restante', width: 101 },
   { label: 'Situação', width: 109 },
 ];
+const columnsWidth = columns.reduce((total, column) => total + column.width, 0);
 
 export function createProjectionPdf(report: ProjectionReport, generatedOn: string): jsPDF {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4', compress: true, putOnlyUsedFonts: true });
@@ -75,7 +77,7 @@ export function createProjectionPdf(report: ProjectionReport, generatedOn: strin
     let x = margin;
     for (const [columnIndex, column] of columns.entries()) {
       const alignRight = columnIndex > 0 && columnIndex < columns.length - 1;
-      const cellWidth = column.width * contentWidth / 770;
+      const cellWidth = column.width * contentWidth / columnsWidth;
       text(values[columnIndex], alignRight ? x + cellWidth - 7 : x + 7, y + 12.5, 8.5, header, alignRight ? 'right' : 'left');
       x += cellWidth;
     }
@@ -83,7 +85,7 @@ export function createProjectionPdf(report: ProjectionReport, generatedOn: strin
 
   heading(false);
   infoRow(107, [
-    ['Saldo atual liberado', formatMoney(report.financing.releasedCents)],
+    ['Saldo liberado inicial', formatMoney(report.financing.releasedCents)],
     ['Valor final do financiamento', formatMoney(report.financing.financedCents)],
     ['Juros nominais anuais', formatPercent(report.financing.annualNominalRate)],
     ['Previsão de entrega', formatDate(report.financing.expectedDeliveryDate)],
@@ -94,12 +96,12 @@ export function createProjectionPdf(report: ProjectionReport, generatedOn: strin
     ['Taxas mensais', formatMoney(report.assumptions.feesCents)],
   ]);
 
-  const partial = report.totalCents === null;
-  doc.setFillColor('#e0eee5');
-  doc.roundedRect(margin, 207, contentWidth, 45, 6, 6, 'F');
-  doc.setTextColor('#305043');
-  text(partial ? 'Subtotal mínimo estimado' : 'Total restante estimado', margin + 12, 234, 12, true);
-  text(formatMoney(report.totalCents ?? report.knownSubtotalCents), width - margin - 12, 235, 16, true, 'right');
+  infoRow(207, [
+    [report.grossCents === null ? 'Subtotal projetado conhecido' : 'Total projetado antes dos pagamentos',
+      formatMoney(report.grossCents ?? report.grossKnownSubtotalCents)],
+    [report.totalCents === null ? 'Subtotal mínimo restante' : 'Total restante estimado',
+      formatMoney(report.totalCents ?? report.knownSubtotalCents)],
+  ]);
 
   doc.setTextColor('#4f675b');
   text('A projeção distribui as liberações até o mês da entrega. A TR e os juros usam o saldo do início de cada mês.', margin, 270, 9);
@@ -154,7 +156,9 @@ function rowValues(row: ProjectionRow): string[] {
   const status = row.settled ? 'Encerrado' : row.paymentAllocationKnown ? 'Projetado' : 'Encargos a conferir';
   return [
     formatDate(row.month), money(row.releaseCents), money(row.releasedCents), money(row.interestCents),
-    money(row.trCents), money(row.insuranceCents), money(row.feesCents), money(row.caixaPaidCents),
+    money(row.trCents), money(row.insuranceCents), money(row.feesCents),
+    row.grossCents === null ? 'Mín. ' + money(row.grossKnownSubtotalCents) : money(row.grossCents),
+    money(row.caixaPaidCents),
     row.totalCents === null ? 'Mín. ' + money(row.knownSubtotalCents) : money(row.totalCents),
     status,
   ];

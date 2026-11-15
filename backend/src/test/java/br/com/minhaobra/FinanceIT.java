@@ -107,6 +107,42 @@ class FinanceIT {
     }
 
     @Test
+    void matchesOriginalSimulatorWithCustomOpeningMonthAndDistinguishesPaidAmounts() throws Exception {
+        Browser owner = login("owner", "USER");
+        var financing = financing(null);
+        financing.put("expectedDeliveryDate", "2027-01-31");
+        financing.put("annualNominalRate", "8");
+        assertStatus(200, owner.save(FINANCING, financing));
+        assertStatus(200, owner.save(month("2026-11"), row(null, "PAID", "NO_PAYMENT",
+                payment("CAIXA", "2026-11-05", 92_300, 0L))));
+
+        var assumptions = Map.of("startMonth", "2026-11", "releasedCents", 10_000_000,
+                "monthlyTr", "0.2", "insuranceCents", 3_000, "feesCents", 2_500);
+        var response = owner.send("POST", FINANCE + "/projection", assumptions, null, true);
+        assertStatus(200, response);
+        var result = json.readTree(response.body());
+        var rows = result.get("rows");
+
+        // Reference: calculator.js, equal release at month end, November through January.
+        assertEquals(356_756L, result.get("grossCents").asLong());
+        assertEquals(264_456L, result.get("totalCents").asLong());
+        assertEquals(3, rows.size());
+        assertEquals("2026-11", rows.get(0).get("month").asString());
+        assertEquals(10_000_000L, rows.get(0).get("baseBalanceCents").asLong());
+        assertEquals(92_300L, rows.get(0).get("grossCents").asLong());
+        assertEquals(0L, rows.get(0).get("totalCents").asLong());
+        assertEquals(26_133L, rows.get(1).get("trCents").asLong());
+        assertEquals(87_285L, rows.get(1).get("interestCents").asLong());
+        assertEquals(3_066_668L, rows.get(2).get("releaseCents").asLong());
+        assertEquals(19_200_000L, rows.get(2).get("releasedCents").asLong());
+        assertEquals(1_000_000L, owner.ledger().get("financing").get("releasedCents").asLong());
+        assertError(400, "INVALID_PROJECTION_PERIOD", owner.send("POST", FINANCE + "/projection",
+                Map.of("startMonth", "2017-01"), null, true));
+        assertError(400, "RELEASE_EXCEEDS_FINANCING", owner.send("POST", FINANCE + "/projection",
+                Map.of("startMonth", "2026-11", "releasedCents", 19_200_001), null, true));
+    }
+
+    @Test
     void revisionsAndIdempotencyPreventDuplicateWritesAndStaleEdits() throws Exception {
         Browser browser = login("owner", "USER");
         Map<String, Object> original = financing(null);

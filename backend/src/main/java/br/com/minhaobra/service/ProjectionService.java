@@ -13,6 +13,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.stereotype.Service;
@@ -35,16 +36,26 @@ public class ProjectionService {
             throw new ApiException(404, "FINANCING_NOT_FOUND", "Cadastre o financiamento antes de simular a evolução.");
         }
 
-        YearMonth current = YearMonth.now(clock.withZone(FINANCE_ZONE));
+        YearMonth start = input.startMonth() == null
+                ? YearMonth.now(clock.withZone(FINANCE_ZONE)) : YearMonth.parse(input.startMonth());
         YearMonth delivery = YearMonth.from(LocalDate.parse(financing.expectedDeliveryDate()));
-        var scenario = new ProjectionCalculator.Scenario(current, delivery, financing.financedCents(),
-                financing.releasedCents(), new BigDecimal(financing.annualNominalRate()),
+        long months = ChronoUnit.MONTHS.between(start, delivery) + 1;
+        if (input.startMonth() != null && (months < 1 || months > 120)) {
+            throw new ApiException(400, "INVALID_PROJECTION_PERIOD", "Informe um período de 1 a 120 meses.");
+        }
+        long openingBalance = input.releasedCents() == null ? financing.releasedCents() : input.releasedCents().longValueExact();
+        if (openingBalance > financing.financedCents()) {
+            throw new ApiException(400, "RELEASE_EXCEEDS_FINANCING",
+                    "O saldo liberado precisa ser menor ou igual ao valor financiado.");
+        }
+        var scenario = new ProjectionCalculator.Scenario(start, delivery, financing.financedCents(),
+                openingBalance, new BigDecimal(financing.annualNominalRate()),
                 input.monthlyTr() == null ? null : new BigDecimal(input.monthlyTr()),
                 optionalCents(input.insuranceCents()), optionalCents(input.feesCents()));
         Map<YearMonth, RecordedCharge> recorded = new HashMap<>();
         for (Finance.MonthView month : ledger.months()) {
             YearMonth competence = YearMonth.parse(month.month());
-            if (!competence.isBefore(current) && !competence.isAfter(delivery)) {
+            if (!competence.isBefore(start) && !competence.isAfter(delivery)) {
                 recorded.put(competence, recordedCharge(month));
             }
         }

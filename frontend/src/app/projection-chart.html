@@ -1,7 +1,7 @@
 <figure aria-labelledby="projection-chart-title" aria-describedby="projection-chart-help">
   <figcaption>
-    <h3 id="projection-chart-title">Seu pagamento, mês a mês</h3>
-    <p id="projection-chart-help">Valor estimado a pagar à CAIXA. A barra listrada indica um subtotal mínimo quando faltam dados. Os valores por mês estão na tabela abaixo.</p>
+    <h3 id="projection-chart-title">Encargos projetados mês a mês</h3>
+    <p id="projection-chart-help">Encargo da CAIXA antes de descontar pagamentos. A barra listrada indica um subtotal mínimo quando faltam dados.</p>
   </figcaption>
 
   <div class="projection-chart-scroll" role="region" aria-label="Gráfico mensal rolável" tabindex="0">
@@ -11,9 +11,7 @@
           <div class="projection-chart-amount">
             @if (bar.amount !== null) {
               <strong>{{ bar.amount }}</strong>
-              @if (bar.settled) {
-                <small>Encerrado</small>
-              } @else if (bar.minimum) {
+              @if (bar.minimum) {
                 <small>Mínimo</small>
               }
             } @else {
