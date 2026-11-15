@@ -59,7 +59,7 @@ final class PaymentPdfBridge {
             Intent document = new Intent(Intent.ACTION_CREATE_DOCUMENT);
             document.addCategory(Intent.CATEGORY_OPENABLE);
             document.setType("application/pdf");
-            document.putExtra(Intent.EXTRA_TITLE, "minha-obra-projecao.pdf");
+            document.putExtra(Intent.EXTRA_TITLE, "minha-obra-pagamentos.pdf");
             pending = pdf;
             activity.startActivityForResult(document, CREATE_PDF);
         } catch (ActivityNotFoundException | IllegalArgumentException exception) {

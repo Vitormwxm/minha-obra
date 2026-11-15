@@ -10,7 +10,7 @@ import {
 import { parseBrl, parsePercent, validDate, validMonth } from './finance-input';
 import { ProjectionChart } from './projection-chart';
 import { PaymentHistoryChart } from './payment-history-chart';
-import type { PaymentTotals, ProjectionReport } from './projection-pdf';
+import type { ProjectionReport } from './projection-pdf';
 import { OperationKey } from './security-input';
 
 type FinanceView = 'summary' | 'financing' | 'month' | 'projection' | 'builder-projection';
@@ -57,12 +57,7 @@ export class Finance implements OnInit {
   readonly officialLookup = signal<{ rate: string | null } | null>(null);
   readonly consultingTr = signal(false);
   readonly projection = signal<ProjectionReport | null>(null);
-  private readonly androidPdf = (window as Window & { MinhaObraPaymentPdf?: { postMessage(data: string): void } }).MinhaObraPaymentPdf;
-  readonly canDownloadProjection = Boolean(this.androidPdf) || !/MinhaObraAndroid\//.test(navigator.userAgent);
-  readonly paymentTotals = computed<PaymentTotals>(() => (this.snapshot()?.months ?? []).reduce(
-    (totals, month) => ({ caixa: totals.caixa + (month.caixaPaidCents ?? 0), builder: totals.builder + (month.builderPaidCents ?? 0) }),
-    { caixa: 0, builder: 0 },
-  ));
+  readonly canDownloadProjection = !/MinhaObraAndroid\//.test(navigator.userAgent);
   readonly today = this.dateToday();
   readonly recentTr = computed(() => {
     const month = this.today.slice(0, 7);
@@ -155,39 +150,30 @@ export class Finance implements OnInit {
   }
 
   async simulate(): Promise<void> {
+    const financing = this.snapshot()?.financing;
+    if (!financing) return;
+
     await this.runAction('Não foi possível calcular a projeção. Tente novamente.', async () => {
       this.projection.set(null);
-      this.projection.set(await this.calculateProjection());
+      const values = this.projectionForm.getRawValue();
+      const assumptions: ProjectionAssumptions = {
+        monthlyTr: this.optionalPercent(values.monthlyTr, 'projection-tr'),
+        insuranceCents: this.optionalMoney(values.insurance, 'projection-insurance', 'seguro mensal'),
+        feesCents: this.optionalMoney(values.fees, 'projection-fees', 'taxas mensais'),
+      };
+      this.projection.set({ ...await this.api.project(assumptions), assumptions, financing });
       this.focus('projection-results');
     });
   }
 
   async downloadProjection(): Promise<void> {
-    if (!this.canDownloadProjection) return;
+    const report = this.projection();
+    if (!report || !this.canDownloadProjection) return;
 
     await this.runAction('Não foi possível baixar o PDF. Tente novamente.', async () => {
-      const report = this.view() === 'summary' ? await this.calculateProjection() : this.projection();
-      if (!report) return;
       const { createProjectionPdf } = await import('./projection-pdf');
-      const pdf = createProjectionPdf(report, this.dateToday(), this.paymentTotals());
-      if (this.androidPdf) {
-        this.androidPdf.postMessage(pdf.output('datauristring').split(',')[1]);
-      } else {
-        pdf.save('minha-obra-projecao.pdf');
-      }
+      createProjectionPdf(report, this.dateToday()).save('minha-obra-projecao.pdf');
     });
-  }
-
-  private async calculateProjection(): Promise<ProjectionReport | null> {
-    const financing = this.snapshot()?.financing;
-    if (!financing) return null;
-    const values = this.projectionForm.getRawValue();
-    const assumptions: ProjectionAssumptions = {
-      monthlyTr: this.optionalPercent(values.monthlyTr, 'projection-tr'),
-      insuranceCents: this.optionalMoney(values.insurance, 'projection-insurance', 'seguro mensal'),
-      feesCents: this.optionalMoney(values.fees, 'projection-fees', 'taxas mensais'),
-    };
-    return { ...await this.api.project(assumptions), assumptions, financing };
   }
 
   async lookupOfficialTr(): Promise<void> {

@@ -61,14 +61,9 @@
         <section class="finance-panel" aria-labelledby="finance-charts-title">
           <div class="section-heading">
             <div><h2 id="finance-charts-title">Gráficos</h2><p class="muted">Compare os pagamentos registrados ou simule os próximos encargos da CAIXA.</p></div>
-            <div class="finance-actions">
-              <button class="secondary-button" type="button" (click)="openProjection()" [disabled]="busy()">Ver gráfico da projeção</button>
-              @if (canDownloadProjection) {
-                <button class="secondary-button" type="button" (click)="downloadProjection()" [disabled]="busy()">Baixar PDF da projeção</button>
-              }
-            </div>
+            <button class="secondary-button" type="button" (click)="openProjection()" [disabled]="busy()">Ver gráfico da projeção</button>
           </div>
-          <app-payment-history-chart [months]="data.months" [totals]="paymentTotals()" />
+          <app-payment-history-chart [months]="data.months" />
         </section>
 
         <section class="finance-panel ledger-panel" aria-labelledby="ledger-title">

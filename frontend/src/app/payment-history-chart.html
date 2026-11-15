@@ -1,17 +1,23 @@
-@if (hasPayments()) {
+@if (paidMonths().length) {
   <figure aria-labelledby="payments-chart-title" aria-describedby="payments-chart-caption">
     <figcaption>
       <h3 id="payments-chart-title">Pagamentos registrados por mês</h3>
       <p id="payments-chart-caption">Valores por mês de vencimento. Deslize na horizontal para ver mais meses.</p>
-      <div class="chart-filters" role="group" aria-label="Pagamentos exibidos">
-        <button type="button" [attr.aria-pressed]="filter() === 'all'" (click)="filter.set('all')">Ambas</button>
-        <button type="button" [attr.aria-pressed]="filter() === 'caixa'" (click)="filter.set('caixa')">
-          <span class="caixa-series" aria-hidden="true"></span>CAIXA
-        </button>
-        <button type="button" [attr.aria-pressed]="filter() === 'builder'" (click)="filter.set('builder')">
-          <span class="builder-series" aria-hidden="true"></span>Construtora
+      <div class="chart-toolbar">
+        <div class="chart-filters" role="group" aria-label="Pagamentos exibidos">
+          <button type="button" [attr.aria-pressed]="filter() === 'all'" (click)="filter.set('all')">Ambas</button>
+          <button type="button" [attr.aria-pressed]="filter() === 'caixa'" (click)="filter.set('caixa')">
+            <span class="caixa-series" aria-hidden="true"></span>CAIXA
+          </button>
+          <button type="button" [attr.aria-pressed]="filter() === 'builder'" (click)="filter.set('builder')">
+            <span class="builder-series" aria-hidden="true"></span>Construtora
+          </button>
+        </div>
+        <button class="secondary-button download-history" type="button" (click)="downloadHistory()" [disabled]="downloading()">
+          {{ downloading() ? 'Gerando PDF…' : 'Baixar PDF dos pagamentos' }}
         </button>
       </div>
+      @if (downloadError()) { <p class="inline-note" role="alert">{{ downloadError() }}</p> }
     </figcaption>
     @if (bars().length) {
       <div class="chart-scroll" role="region" aria-label="Histórico mensal de pagamentos" tabindex="0">
