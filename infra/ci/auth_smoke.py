@@ -291,7 +291,7 @@ def main():
                     "email": "ci-person@example.com", "password": person_password}
     key = str(uuid.uuid4())
     person.request("POST", "/api/auth/register", registration, expected=403, key=key, csrf=False)
-    invalid = person.request("POST", "/api/auth/register", {**registration, "password": "0123456x"},
+    invalid = person.request("POST", "/api/auth/register", {**registration, "password": "012345x"},
                              expected=400, key=key)
     assert invalid["code"] == "PASSWORD_POLICY"
     pending = person.request("POST", "/api/auth/register", registration, expected=201, key=key)
