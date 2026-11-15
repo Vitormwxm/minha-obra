@@ -2,9 +2,7 @@
 figure { margin: 0; padding: clamp(12px, 3vw, 20px); border: 1px solid var(--border); border-radius: 12px; background: var(--canvas); }
 figcaption h3 { margin: 0 0 5px; font-size: 15px; }
 figcaption p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
-.chart-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
-.chart-filters { display: flex; flex-wrap: wrap; gap: 6px; }
-.download-history { min-height: 44px; padding: 6px 12px; font-size: 12px; }
+.chart-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 4px; }
 .chart-filters button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 6px 10px;
   border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--heading); font-size: 12px; font-weight: 600; }
 .chart-filters button:hover, .chart-filters button[aria-pressed="true"] { border-color: var(--green); }
@@ -22,3 +20,13 @@ figcaption p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6
 .chart-track { display: flex; height: 132px; flex-direction: column-reverse; align-items: center; border-bottom: 1px solid var(--border);
   background: repeating-linear-gradient(to top, transparent 0 calc(25% - 1px), var(--border) calc(25% - 1px) 25%); }
 .chart-track span { display: block; width: 44px; }
+.payment-split { margin-top: 12px; }
+.split-body { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 22px; margin-top: 12px; }
+.pie { width: 112px; height: 112px; flex: none; border-radius: 50%;
+  background: conic-gradient(var(--green) 0 var(--caixa-share), #d69b40 var(--caixa-share) 100%); }
+.split-values { margin: 0; font-size: 12px; }
+.split-values div + div { margin-top: 8px; }
+.split-values dt { display: flex; align-items: center; gap: 6px; color: var(--heading); }
+.split-values dt span { width: 10px; height: 10px; border-radius: 2px; }
+.split-values dd { margin: 2px 0 0 16px; font-weight: 600; }
+.split-values dd span { margin-left: 4px; color: var(--muted); font-weight: 400; }

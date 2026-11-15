@@ -6,6 +6,11 @@ export interface ProjectionReport extends FinanceProjection {
   assumptions: ProjectionAssumptions;
 }
 
+export interface PaymentTotals {
+  caixa: number;
+  builder: number;
+}
+
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const decimal = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const columns = [
@@ -21,7 +26,7 @@ const columns = [
   { label: 'Situação', width: 109 },
 ];
 
-export function createProjectionPdf(report: ProjectionReport, generatedOn: string): jsPDF {
+export function createProjectionPdf(report: ProjectionReport, generatedOn: string, paid?: PaymentTotals): jsPDF {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4', compress: true, putOnlyUsedFonts: true });
   const width = doc.internal.pageSize.getWidth();
   const height = doc.internal.pageSize.getHeight();
@@ -81,6 +86,39 @@ export function createProjectionPdf(report: ProjectionReport, generatedOn: strin
     }
   }
 
+  function paymentSplit(totals: PaymentTotals): void {
+    const share = totals.caixa / (totals.caixa + totals.builder);
+    const center = { x: margin + 31, y: 329 };
+    const radius = 24;
+    doc.setFillColor(share === 1 ? '#087f72' : '#d69b40');
+    doc.circle(center.x, center.y, radius, 'F');
+    if (share > 0 && share < 1) {
+      const segments = Math.ceil(share * 80);
+      const path: number[][] = [];
+      let lastX = 0;
+      let lastY = 0;
+      for (let i = 0; i <= segments; i++) {
+        const angle = i / segments * share * 2 * Math.PI - Math.PI / 2;
+        const x = Math.cos(angle) * radius;
+        const y = Math.sin(angle) * radius;
+        path.push([x - lastX, y - lastY]);
+        lastX = x;
+        lastY = y;
+      }
+      doc.setFillColor('#087f72');
+      doc.lines(path, center.x, center.y, [1, 1], 'F', true);
+    }
+    doc.setTextColor('#24382f');
+    text('Distribuição dos pagamentos registrados', margin + 70, 316, 11, true);
+    const percent = (value: number) => value.toLocaleString('pt-BR', { style: 'percent', maximumFractionDigits: 1 });
+    doc.setFillColor('#087f72');
+    doc.rect(margin + 70, 326, 8, 8, 'F');
+    text('CAIXA  ' + formatMoney(totals.caixa) + '  (' + percent(share) + ')', margin + 83, 333, 9);
+    doc.setFillColor('#d69b40');
+    doc.rect(margin + 70, 341, 8, 8, 'F');
+    text('Construtora  ' + formatMoney(totals.builder) + '  (' + percent(1 - share) + ')', margin + 83, 348, 9);
+  }
+
   heading(false);
   infoRow(107, [
     ['Saldo atual liberado', formatMoney(report.financing.releasedCents)],
@@ -105,8 +143,12 @@ export function createProjectionPdf(report: ProjectionReport, generatedOn: strin
   text('A projeção distribui as liberações até o mês da entrega. A TR e os juros usam o saldo do início de cada mês.', margin, 270, 9);
   text('Quando os dados são parciais, o PDF mostra o subtotal mínimo estimado. Os valores da tabela estão em reais (R$).', margin, 284, 9);
 
+  const hasPaymentSplit = paid && paid.caixa + paid.builder > 0;
+  if (hasPaymentSplit) paymentSplit(paid);
+  const firstRowY = hasPaymentSplit ? 365 : 299;
+
   if (report.rows.length) {
-    let y = 299;
+    let y = firstRowY;
     tableRow(y, columns.map((column) => column.label), -1);
     y += rowHeight;
     report.rows.forEach((row, index) => {
@@ -121,7 +163,7 @@ export function createProjectionPdf(report: ProjectionReport, generatedOn: strin
       y += rowHeight;
     });
   } else {
-    text('A entrega prevista é anterior ao mês atual. Nenhum mês a projetar.', margin, 314, 11);
+    text('A entrega prevista é anterior ao mês atual. Nenhum mês a projetar.', margin, firstRowY + 15, 11);
   }
 
   const pages = doc.getNumberOfPages();
