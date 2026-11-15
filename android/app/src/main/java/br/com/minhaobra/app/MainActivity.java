@@ -37,7 +37,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        int surface = Color.rgb(244, 247, 251);
+        int surface = Color.rgb(245, 246, 244);
         getWindow().setStatusBarColor(surface);
         getWindow().setNavigationBarColor(surface);
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);

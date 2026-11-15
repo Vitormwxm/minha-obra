@@ -6,8 +6,8 @@ h1:focus { outline: none; }
 .accounts-panel { background: #fff; border: 1px solid var(--border); border-radius: 18px; overflow: hidden; }
 .panel-toolbar { padding: 24px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .search-form { display: flex; gap: 10px; max-width: 470px; flex: 1; }
-.search-form input { min-width: 0; width: 100%; border: 1px solid #bdcce0; border-radius: 10px; background: #f8faff; padding: 12px 14px; font-size: 11px; min-height: 44px; color: var(--ink); }
-.search-form input:focus { border-color: var(--green); outline: 2px solid #214fba28; outline-offset: 1px; }
+.search-form input { min-width: 0; width: 100%; border: 1px solid #cbd9ce; border-radius: 10px; background: #fafcf9; padding: 12px 14px; font-size: 11px; min-height: 44px; color: var(--ink); }
+.search-form input:focus { border-color: var(--green); outline: 2px solid #087f7228; outline-offset: 1px; }
 .search-form input::placeholder { color: #889b8c; }
 .search-form button { font-size: 11px; min-height: 44px; padding: 10px 17px; }
 .refresh { font-size: 10px; white-space: nowrap; min-height: 42px; }
@@ -17,7 +17,7 @@ h1:focus { outline: none; }
 .account-row { min-height: 110px; border-bottom: 1px solid var(--border); padding-block: 22px; }
 .account-row:last-child { border-bottom: 0; }
 .person { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.avatar { flex-shrink: 0; width: 38px; height: 38px; display: grid; place-items: center; border-radius: 11px; background: var(--surface-blue); color: var(--green); font-size: 15px; font-weight: 500; }
+.avatar { flex-shrink: 0; width: 38px; height: 38px; display: grid; place-items: center; border-radius: 11px; background: var(--surface-tint); color: var(--green); font-size: 15px; font-weight: 500; }
 .person > div { min-width: 0; }
 .person h2 { font-size: 12px; font-weight: 500; margin: 0 0 5px; line-height: 1.7; overflow-wrap: anywhere; }
 .person p { font-size: 10px; color: #809184; margin: 0; overflow-wrap: anywhere; }
