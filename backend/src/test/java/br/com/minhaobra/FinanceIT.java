@@ -108,7 +108,7 @@ class FinanceIT {
 
     @Test
     void matchesOriginalSimulatorWithCustomOpeningMonthAndDistinguishesPaidAmounts() throws Exception {
-        Browser owner = login("owner", "USER");
+        Browser owner = login("projection_owner", "USER");
         var financing = financing(null);
         financing.put("expectedDeliveryDate", "2027-01-31");
         financing.put("annualNominalRate", "8");
