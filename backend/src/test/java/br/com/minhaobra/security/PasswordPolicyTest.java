@@ -6,11 +6,13 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PasswordPolicyTest {
-    @Test void acceptsExactlyEightAsciiDigitsIncludingLeadingZeros() {
+    @Test void acceptsAtLeastEightCharactersWithinTheHashLimit() {
         assertDoesNotThrow(() -> PasswordPolicy.validate("01234567"));
-        assertDoesNotThrow(() -> PasswordPolicy.validate("00000000"));
+        assertDoesNotThrow(() -> PasswordPolicy.validate("MinhaObra2026"));
+        assertDoesNotThrow(() -> PasswordPolicy.validate("123456789"));
+        assertDoesNotThrow(() -> PasswordPolicy.validate("é".repeat(36)));
         for (String value : new String[] {
-                null, "", "1234567", "123456789", "1234567x", " 01234567", "01234567\n", "１２３４５６７８"}) {
+                null, "", "1234567", "        ", "01234567\n", "é".repeat(37), "a".repeat(73)}) {
             assertThrows(ApiException.class, () -> PasswordPolicy.validate(value));
         }
     }

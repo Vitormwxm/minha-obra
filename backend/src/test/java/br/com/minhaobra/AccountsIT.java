@@ -337,9 +337,29 @@ class AccountsIT {
         assertEquals(403,user.post("/api/admin/users",Map.of("username","forbidden","displayName","Pessoa","temporaryPassword",TEMP),true,UUID.randomUUID()).statusCode());
     }
 
+    @Test void operatorPasswordRecoveryRevokesSessionsAndPreservesAdminMfa() throws Exception {
+        Browser previousSession = admin();
+        var before = accounts.byUsername("owner").orElseThrow();
+        insert("person", "USER", false, NORMAL);
+        assertThrows(br.com.minhaobra.service.ApiException.class, () -> bootstrap().resetPassword("person", TEMP));
+
+        bootstrap().resetPassword("owner", TEMP);
+
+        var after = accounts.byId(before.id()).orElseThrow();
+        assertEquals(before.totpSecret(), after.totpSecret());
+        assertEquals(before.authVersion() + 1, after.authVersion());
+        assertEquals(401, previousSession.get("/api/auth/me").statusCode());
+        assertEquals(401, new Browser().login("owner", NORMAL).statusCode());
+
+        Browser recovered = new Browser();
+        assertStage(recovered.login("owner", TEMP), "CHANGE_PASSWORD");
+        assertStage(recovered.post("/api/auth/change-password",
+                Map.of("currentPassword", TEMP, "newPassword", NORMAL)), "MFA_VERIFY");
+    }
+
     @Test void invalidReplacementPasswordsCannotLockTheUserOut() throws Exception {
         UUID id=insert("person","USER",true,TEMP);Browser browser=new Browser();browser.login("person",TEMP);
-        for (String invalid : List.of("1234567", "123456789", "1234567x", "        ")) {
+        for (String invalid : List.of("1234567", "        ", "1234567\n", "é".repeat(37))) {
             var rejected = browser.post("/api/auth/change-password", Map.of("currentPassword", TEMP, "newPassword", invalid));
             assertEquals(400, rejected.statusCode());
             assertEquals("PASSWORD_POLICY", JsonPath.read(rejected.body(), "$.code"));

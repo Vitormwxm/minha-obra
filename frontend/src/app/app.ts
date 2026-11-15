@@ -12,7 +12,9 @@ import { NotificationDevice } from './notification-device';
 import { NotificationDeviceControls } from './notification-device-controls';
 import { PublicProjection } from './public-projection';
 import { ReminderPreferences } from './reminder-preferences';
-import { normalizedUsername, OperationKey, passwordProblem, validUsername } from './security-input';
+import { normalizedUsername, OperationKey, passwordProblem, passwordValidator, validUsername } from './security-input';
+
+type WorkspacePage = 'overview' | 'accounts' | 'finance' | 'profile' | 'deletion' | 'deletions' | 'reminders';
 
 @Component({
   selector: 'app-root',
@@ -33,7 +35,7 @@ export class App implements OnInit {
   readonly workspaceBusy = signal(false);
   readonly message = signal('');
   readonly notice = signal('');
-  readonly page = signal<'overview' | 'accounts' | 'finance' | 'deletion' | 'deletions' | 'reminders'>('overview');
+  readonly page = signal<WorkspacePage>('overview');
   readonly accessPage = signal<'login' | 'register' | 'requested' | 'projection'>('login');
   readonly changingPassword = signal(false);
   readonly showPassword = signal(false);
@@ -50,13 +52,13 @@ export class App implements OnInit {
     displayName: ['', [Validators.required, Validators.maxLength(120)]],
     email: ['', [Validators.required, Validators.email, Validators.maxLength(254)]],
     username: ['', [Validators.required, Validators.maxLength(40)]],
-    password: ['', [Validators.required, Validators.pattern('[0-9]{8}')]],
-    confirmPassword: ['', [Validators.required, Validators.pattern('[0-9]{8}')]],
+    password: ['', passwordValidator],
+    confirmPassword: ['', passwordValidator],
   });
   readonly passwordForm = this.forms.group({
     currentPassword: ['', Validators.required],
-    newPassword: ['', [Validators.required, Validators.pattern('[0-9]{8}')]],
-    confirmPassword: ['', [Validators.required, Validators.pattern('[0-9]{8}')]],
+    newPassword: ['', passwordValidator],
+    confirmPassword: ['', passwordValidator],
   });
   readonly mfaForm = this.forms.group({ code: ['', Validators.required] });
 
@@ -172,7 +174,7 @@ export class App implements OnInit {
     this.passwordForm.markAllAsTouched();
     const values = this.passwordForm.getRawValue();
     const problem = passwordProblem(values.newPassword);
-    if (this.passwordForm.invalid || problem) {
+    if (!values.currentPassword || problem) {
       this.message.set(problem ?? 'Preencha as três senhas para continuar.');
       return;
     }
@@ -273,7 +275,7 @@ export class App implements OnInit {
     this.message.set('Sua sessão terminou. Entre novamente para continuar.');
   }
 
-  showWorkspacePage(page: 'overview' | 'accounts' | 'finance' | 'deletion' | 'deletions' | 'reminders'): void {
+  showWorkspacePage(page: WorkspacePage): void {
     if (this.workspaceBusy()) return;
     this.page.set(page);
     this.focusTitle();

@@ -62,8 +62,8 @@ Rotacionar sessão e renovar CSRF depois de autenticar/trocar senha/logout.
 Conferir status/auth_version no banco em cada request; reset/bloqueio/troca
 revogam sessões, inclusive diante de requests concorrentes.
 
-Senhas novas e provisórias exigem exatamente oito dígitos ASCII e aceitam
-zeros à esquerda. O login e o campo de senha atual continuam aceitando
+Senhas novas e provisórias exigem pelo menos oito caracteres e aceitam letras
+e números. O BCrypt limita a entrada a 72 bytes em UTF-8. O login e o campo de senha atual continuam aceitando
 credenciais anteriores. O servidor armazena hashes BCrypt com custo 12.
 O limite de tentativas por IP e usuário ou MFA é aplicado antes do hash.
 Logs ficam livres de senhas e tokens.

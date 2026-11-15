@@ -2,16 +2,15 @@ package br.com.minhaobra.security;
 
 import br.com.minhaobra.service.ApiException;
 import java.nio.charset.StandardCharsets;
-import java.util.regex.Pattern;
 
 public final class PasswordPolicy {
-    private static final Pattern NEW_PASSWORD = Pattern.compile("[0-9]{8}");
-
     private PasswordPolicy() {}
 
     public static void validate(String password) {
-        if (password == null || !NEW_PASSWORD.matcher(password).matches()) {
-            throw new ApiException(400, "PASSWORD_POLICY", "Use uma senha com exatamente 8 dígitos de 0 a 9.");
+        if (!validInputForHash(password) || password.codePointCount(0, password.length()) < 8
+                || password.codePoints().allMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c))
+                || password.codePoints().anyMatch(Character::isISOControl)) {
+            throw new ApiException(400, "PASSWORD_POLICY", "Use pelo menos 8 caracteres, até 72 bytes, sem caracteres de controle.");
         }
     }
 

@@ -8,7 +8,7 @@
 .finance-panel h2 { margin: 6px 0; font-size: 20px; font-weight: 600; }
 .finance-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .financing-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 18px 0 12px; }
-.financing-facts div { border-radius: 10px; background: #f2f6f1; padding: 10px 12px; }
+.financing-facts div { border-radius: 10px; background: var(--surface-blue); padding: 10px 12px; }
 .financing-facts dt, .muted { color: var(--muted); font-size: 11px; line-height: 1.7; }
 .financing-facts dd { margin: 4px 0 0; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
 .gap-alert { margin: 16px 0; border-radius: 10px; padding: 12px; background: #fbf3df; color: #6f531d; font-size: 12px; }
@@ -18,7 +18,7 @@
 .ledger-scroll { overflow-x: auto; }
 .ledger { width: 100%; border-collapse: collapse; text-align: left; font-size: 11px; }
 .ledger td, .ledger th { padding: 9px 7px; border-bottom: 1px solid var(--border); }
-.ledger thead { color: #36594b; background: #f2f6f1; }
+.ledger thead { color: #2f4c73; background: var(--surface-blue); }
 .ledger td { white-space: nowrap; }
 .ledger-payer strong { display: block; margin-bottom: 4px; }
 .mobile-label { display: none; }
@@ -30,13 +30,13 @@
 .payment-fields { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .finance-form .field { margin-bottom: 4px; }
 .finance-form label span { color: var(--muted); font-weight: 400; }
-.finance-form .field select { width: 100%; min-width: 0; min-height: 49px; padding: 8px 12px; border: 1px solid #b8c9bd; border-radius: 10px; background: #fff; color: var(--ink); font-size: 13px; }
+.finance-form .field select { width: 100%; min-width: 0; min-height: 49px; padding: 8px 12px; border: 1px solid #b1c2da; border-radius: 10px; background: #fff; color: var(--ink); font-size: 13px; }
 .finance-form .field select[aria-invalid='true'] { border-color: #b85a4e; }
-.finance-form input[readonly] { background: #f4f7f3; }
+.finance-form input[readonly] { background: var(--canvas); }
 .month-picker { max-width: 240px; }
 .payer-grid { margin-top: 12px; }
 .payer, .payment { margin-bottom: 0; padding: 10px; border: 1px solid var(--border); border-radius: 10px; }
-.payer legend, .payment legend { padding: 0 5px; color: #36594b; font-size: 12px; font-weight: 600; }
+.payer legend, .payment legend { padding: 0 5px; color: #2f4c73; font-size: 12px; font-weight: 600; }
 .payer .field + .field { margin-top: 10px; }
 .payments { display: grid; gap: 10px; margin: 10px 0; }
 .form-actions { justify-content: flex-end; border-top: 1px solid var(--border); padding-top: 14px; }
@@ -54,8 +54,8 @@
   .ledger, .ledger tbody { display: block; }
   .ledger tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 10px; padding: 8px; border: 1px solid var(--border); border-radius: 10px; }
   .ledger td, .ledger th { border: 0; white-space: normal; overflow-wrap: anywhere; }
-  .ledger-month { grid-column: 1 / -1; font-size: 13px; background: #f2f6f1; border-radius: 6px; }
-  .mobile-label { display: block; color: #36594b; font-weight: 500; }
+  .ledger-month { grid-column: 1 / -1; font-size: 13px; background: var(--surface-blue); border-radius: 6px; }
+  .mobile-label { display: block; color: #2f4c73; font-weight: 500; }
   .ledger-details button { min-height: 40px; }
   .payment-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

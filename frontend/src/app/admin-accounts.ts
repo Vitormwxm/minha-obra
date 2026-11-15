@@ -3,7 +3,7 @@ import { Component, ElementRef, inject, input, OnDestroy, OnInit, output, signal
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AccountsApi, apiMessage } from './accounts-api';
 import { Account, AccountPage } from './accounts.models';
-import { newTemporaryPassword, OperationKey, passwordProblem } from './security-input';
+import { newTemporaryPassword, OperationKey, passwordProblem, passwordValidator } from './security-input';
 
 type AccountAction = 'approve' | 'reset' | 'block' | 'unblock';
 type AccountDialog = { kind: AccountAction; account: Account };
@@ -36,7 +36,7 @@ export class AdminAccounts implements OnInit, OnDestroy {
   readonly passwordCopied = signal(false);
   readonly searchForm = this.forms.group({ search: ['', Validators.maxLength(120)] });
   readonly accountForm = this.forms.group({
-    temporaryPassword: ['', [Validators.required, Validators.pattern('[0-9]{8}')]],
+    temporaryPassword: ['', passwordValidator],
   });
 
   ngOnInit(): void { void this.load(0); }
